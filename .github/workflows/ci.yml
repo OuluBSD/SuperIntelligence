@@ -161,6 +161,10 @@ jobs:
           VCPKG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           vcpkg install openssl:x64-windows zlib:x64-windows bzip2:x64-windows liblzma:x64-windows lz4:x64-windows zstd:x64-windows xxhash:x64-windows pcre2:x64-windows libpng:x64-windows libjpeg-turbo:x64-windows
+          if exist "C:\vcpkg\installed\x64-windows\lib\zlib.lib" (
+            copy "C:\vcpkg\installed\x64-windows\lib\zlib.lib" "C:\vcpkg\installed\x64-windows\lib\zs.lib"
+            copy "C:\vcpkg\installed\x64-windows\lib\zlib.lib" "C:\vcpkg\installed\x64-windows\lib\z.lib"
+          )
           echo "INCLUDE=C:\vcpkg\installed\x64-windows\include;%INCLUDE%" >> %GITHUB_ENV%
           echo "LIB=C:\vcpkg\installed\x64-windows\lib;%LIB%" >> %GITHUB_ENV%
 
