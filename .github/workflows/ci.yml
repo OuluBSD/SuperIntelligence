@@ -69,8 +69,8 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew install openssl@3 libpng lz4 pcre2 xxhash zstd xz bzip2
-          echo "CPATH=/opt/homebrew/include" >> "$GITHUB_ENV"
-          echo "LIBRARY_PATH=/opt/homebrew/lib" >> "$GITHUB_ENV"
+          echo "CPATH=/opt/homebrew/include:/opt/homebrew/opt/openssl@3/include" >> "$GITHUB_ENV"
+          echo "LIBRARY_PATH=/opt/homebrew/lib:/opt/homebrew/opt/openssl@3/lib" >> "$GITHUB_ENV"
 
       - name: Bootstrap umk with UppBootstrap
         env:

@@ -351,6 +351,20 @@ CONSOLE_APP_MAIN
 {
 	const Vector<String>& cmd = CommandLine();
 
+	if(cmd.GetCount() >= 2 && cmd[0] == "test") {
+		int test_id = ScanInt(cmd[1]);
+		if(test_id == 15) {
+			bool success = RunTest15();
+			SetExitCode(success ? 0 : 1);
+			return;
+		}
+		if(test_id == 16) {
+			bool success = RunTest16();
+			SetExitCode(success ? 0 : 1);
+			return;
+		}
+	}
+
 	OpenAiCompatibleProvider provider;
 	if(!provider.LoadApiKey()) {
 		Cerr() << "Error: No OpenRouter API key found. Expected in ~/openrouter-apikey.txt or OPENROUTER_API_KEY\n";
