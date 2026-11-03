@@ -319,7 +319,7 @@ static bool RunTest16()
 	}
 
 	// 4. Verify file round-trip (LoadYAMLFile)
-	String tmp_file = "/tmp/test_sweagent_cfg_roundtrip.yaml";
+	String tmp_file = ConfigFile("test_sweagent_cfg_roundtrip.yaml");
 	if(!SaveFile(tmp_file, serialized)) {
 		Cerr() << "FAILED: Could not write temporary YAML config file to " << tmp_file << "\n";
 		return false;
