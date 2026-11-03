@@ -178,6 +178,7 @@ jobs:
           )
           echo INCLUDE=C:\vcpkg\installed\x64-windows\include;%INCLUDE%>>%GITHUB_ENV%
           echo LIB=C:\vcpkg\installed\x64-windows\lib;C:\vcpkg\installed\x64-windows\debug\lib;%LIB%>>%GITHUB_ENV%
+          echo C:\vcpkg\installed\x64-windows\bin>>%GITHUB_PATH%
 
       - name: Bootstrap umk with UppBootstrap
         shell: cmd
@@ -221,5 +222,6 @@ jobs:
       - name: Run Self-Contained SweAgent Tests (Windows)
         shell: cmd
         run: |
+          if exist "C:\vcpkg\installed\x64-windows\bin" copy /y "C:\vcpkg\installed\x64-windows\bin\*.dll" SuperIntelligence\bin\
           SuperIntelligence\bin\SweAgentDemo.exe test 15
           SuperIntelligence\bin\SweAgentDemo.exe test 16
