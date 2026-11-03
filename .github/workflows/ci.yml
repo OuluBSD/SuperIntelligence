@@ -166,6 +166,9 @@ jobs:
             copy "C:\vcpkg\installed\x64-windows\lib\zlib.lib" "C:\vcpkg\installed\x64-windows\lib\zs.lib"
             copy "C:\vcpkg\installed\x64-windows\lib\zlib.lib" "C:\vcpkg\installed\x64-windows\lib\z.lib"
           )
+          if exist "C:\vcpkg\installed\x64-windows\lib\pcre2-8.lib" (
+            copy "C:\vcpkg\installed\x64-windows\lib\pcre2-8.lib" "C:\vcpkg\installed\x64-windows\lib\pcre2.lib"
+          )
           echo INCLUDE=C:\vcpkg\installed\x64-windows\include;%INCLUDE%>>%GITHUB_ENV%
           echo LIB=C:\vcpkg\installed\x64-windows\lib;%LIB%>>%GITHUB_ENV%
 
