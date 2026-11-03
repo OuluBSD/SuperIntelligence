@@ -157,6 +157,7 @@ jobs:
           arch: x64
 
       - name: Install Dependencies via vcpkg (Windows)
+        shell: cmd
         env:
           VCPKG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -165,8 +166,8 @@ jobs:
             copy "C:\vcpkg\installed\x64-windows\lib\zlib.lib" "C:\vcpkg\installed\x64-windows\lib\zs.lib"
             copy "C:\vcpkg\installed\x64-windows\lib\zlib.lib" "C:\vcpkg\installed\x64-windows\lib\z.lib"
           )
-          echo "INCLUDE=C:\vcpkg\installed\x64-windows\include;%INCLUDE%" >> %GITHUB_ENV%
-          echo "LIB=C:\vcpkg\installed\x64-windows\lib;%LIB%" >> %GITHUB_ENV%
+          echo INCLUDE=C:\vcpkg\installed\x64-windows\include;%INCLUDE%>>%GITHUB_ENV%
+          echo LIB=C:\vcpkg\installed\x64-windows\lib;%LIB%>>%GITHUB_ENV%
 
       - name: Bootstrap umk with UppBootstrap
         shell: cmd
