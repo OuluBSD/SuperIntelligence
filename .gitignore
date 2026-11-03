@@ -1,0 +1,14 @@
+# Build artifacts
+bin/
+*.o
+*.obj
+*.lib
+*.a
+*.so
+*.dll
+*.dylib
+*.app/
+*.exe
+.upp/
+.cache/
+build/

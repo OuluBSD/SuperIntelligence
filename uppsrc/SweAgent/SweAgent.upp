@@ -1,0 +1,18 @@
+description "Core headless SWE-Agent framework for U++\377";
+
+uses
+	Core,
+	Core/SSL;
+
+file
+	AGENTS.md,
+	SweAgent.h,
+	Types.h,
+	Config.h,
+	Config.cpp,
+	Tool.h,
+	Tool.cpp,
+	Provider.h,
+	Provider.cpp,
+	Agent.h,
+	Agent.cpp;

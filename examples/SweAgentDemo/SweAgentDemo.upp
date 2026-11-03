@@ -1,0 +1,11 @@
+description "SweAgent Autonomous Task Runner Demo\377";
+
+uses
+	Core,
+	SweAgent;
+
+file
+	SweAgentDemo.cpp;
+
+mainconfig
+	"" = "";
