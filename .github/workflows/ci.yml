@@ -163,16 +163,18 @@ jobs:
         run: |
           vcpkg install openssl:x64-windows zlib:x64-windows bzip2:x64-windows liblzma:x64-windows lz4:x64-windows zstd:x64-windows xxhash:x64-windows pcre2:x64-windows libpng:x64-windows libjpeg-turbo:x64-windows
           vcpkg integrate install
-          dir /s /b "C:\vcpkg\installed\x64-windows\*.lib"
-          for /r "C:\vcpkg\installed\x64-windows" %%f in (*zlib*.lib *z*.lib) do (
-            copy /y "%%f" "C:\vcpkg\installed\x64-windows\lib\zs.lib"
-            copy /y "%%f" "C:\vcpkg\installed\x64-windows\lib\z.lib"
+          copy /y "C:\vcpkg\installed\x64-windows\lib\z.lib" "C:\vcpkg\installed\x64-windows\lib\zs.lib"
+          if exist "C:\vcpkg\installed\x64-windows\debug\lib\zd.lib" (
+            copy /y "C:\vcpkg\installed\x64-windows\debug\lib\zd.lib" "C:\vcpkg\installed\x64-windows\debug\lib\zs.lib"
+            copy /y "C:\vcpkg\installed\x64-windows\debug\lib\zd.lib" "C:\vcpkg\installed\x64-windows\debug\lib\z.lib"
           )
-          for /r "C:\vcpkg\installed\x64-windows" %%f in (*pcre2*.lib) do (
-            copy /y "%%f" "C:\vcpkg\installed\x64-windows\lib\pcre2.lib"
+          copy /y "C:\vcpkg\installed\x64-windows\lib\pcre2-8.lib" "C:\vcpkg\installed\x64-windows\lib\pcre2.lib"
+          if exist "C:\vcpkg\installed\x64-windows\debug\lib\pcre2-8d.lib" (
+            copy /y "C:\vcpkg\installed\x64-windows\debug\lib\pcre2-8d.lib" "C:\vcpkg\installed\x64-windows\debug\lib\pcre2.lib"
           )
-          for /r "C:\vcpkg\installed\x64-windows" %%f in (*png*.lib) do (
-            copy /y "%%f" "C:\vcpkg\installed\x64-windows\lib\png.lib"
+          copy /y "C:\vcpkg\installed\x64-windows\lib\libpng16.lib" "C:\vcpkg\installed\x64-windows\lib\png.lib"
+          if exist "C:\vcpkg\installed\x64-windows\debug\lib\libpng16d.lib" (
+            copy /y "C:\vcpkg\installed\x64-windows\debug\lib\libpng16d.lib" "C:\vcpkg\installed\x64-windows\debug\lib\png.lib"
           )
           echo INCLUDE=C:\vcpkg\installed\x64-windows\include;%INCLUDE%>>%GITHUB_ENV%
           echo LIB=C:\vcpkg\installed\x64-windows\lib;C:\vcpkg\installed\x64-windows\debug\lib;%LIB%>>%GITHUB_ENV%
