@@ -2,7 +2,8 @@ description "SweAgent Autonomous Task Runner Demo\377";
 
 uses
 	Core,
-	SweAgent;
+	SweAgent,
+	SuperIntelligence/Provider;
 
 file
 	SweAgentDemo.cpp;

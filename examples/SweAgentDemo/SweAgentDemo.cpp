@@ -1,4 +1,5 @@
 #include <SweAgent/SweAgent.h>
+#include <SuperIntelligence/Provider/Provider.h>
 
 using namespace Upp;
 
@@ -347,6 +348,229 @@ static bool RunTest16()
 	return true;
 }
 
+static bool RunTest17()
+{
+	Cout() << "========================================================\n";
+	Cout() << "=== Task 17: OpenAI-Compatible Provider & Completions ===\n";
+	Cout() << "========================================================\n";
+
+	// 1. URL normalization for various providers (default OpenAI, custom Ollama, local vLLM)
+	{
+		AiServiceProvider p;
+		p.type = AiServiceProvider::OPENAI;
+		p.url = "";
+		if(p.GetCompletionEndpoint() != "https://api.openai.com/v1/completions" ||
+		   p.GetChatEndpoint() != "https://api.openai.com/v1/chat/completions") {
+			Cerr() << "FAILED: Default OpenAI endpoint mismatch:\n"
+			       << "  completion=" << p.GetCompletionEndpoint() << "\n"
+			       << "  chat=" << p.GetChatEndpoint() << "\n";
+			return false;
+		}
+
+		// Custom Ollama without /v1
+		p.type = AiServiceProvider::OLLAMA;
+		p.url = "http://localhost:11434";
+		if(p.GetCompletionEndpoint() != "http://localhost:11434/v1/completions" ||
+		   p.GetChatEndpoint() != "http://localhost:11434/v1/chat/completions") {
+			Cerr() << "FAILED: Ollama endpoint mismatch: " << p.GetCompletionEndpoint() << "\n";
+			return false;
+		}
+
+		// Local vLLM with trailing slash and /v1
+		p.type = AiServiceProvider::GENERIC_OPENAI;
+		p.url = "http://localhost:8000/v1/";
+		if(p.GetCompletionEndpoint() != "http://localhost:8000/v1/completions" ||
+		   p.GetChatEndpoint() != "http://localhost:8000/v1/chat/completions") {
+			Cerr() << "FAILED: Local vLLM endpoint mismatch: " << p.GetCompletionEndpoint() << "\n";
+			return false;
+		}
+
+		// Local vLLM without /v1
+		p.url = "http://localhost:8000";
+		if(p.GetCompletionEndpoint() != "http://localhost:8000/v1/completions") {
+			Cerr() << "FAILED: Local vLLM without /v1 mismatch: " << p.GetCompletionEndpoint() << "\n";
+			return false;
+		}
+
+		// User entered full endpoint directly
+		p.url = "http://localhost:8000/v1/completions";
+		if(p.GetCompletionEndpoint() != "http://localhost:8000/v1/completions" ||
+		   p.GetChatEndpoint() != "http://localhost:8000/v1/chat/completions") {
+			Cerr() << "FAILED: User full endpoint normalization mismatch: " << p.GetCompletionEndpoint() << "\n";
+			return false;
+		}
+
+		// Host:port without scheme
+		p.url = "127.0.0.1:11434";
+		if(p.GetCompletionEndpoint() != "http://127.0.0.1:11434/v1/completions") {
+			Cerr() << "FAILED: Scheme-less URL normalization mismatch: " << p.GetCompletionEndpoint() << "\n";
+			return false;
+		}
+	}
+
+	// 2. Correct generation of /v1/completions JSON payload
+	{
+		CompletionRequest req;
+		req.prompt = "Write a unit test for legacy completions";
+		req.model = "gpt-3.5-turbo-instruct";
+		req.max_tokens = 256;
+		req.temperature = 0.7;
+		req.top_p = 0.95;
+		req.stop.Add("\n\n");
+		req.stop.Add("END");
+		req.logprobs = 5;
+		req.stream = true;
+
+		String payload = AiServiceProvider::BuildCompletionPayload(req);
+		Value v = ParseJSON(payload);
+		if(v.IsError() || !v.Is<ValueMap>()) {
+			Cerr() << "FAILED: Generated completion payload is not valid JSON:\n" << payload << "\n";
+			return false;
+		}
+
+		if(AsString(v["prompt"]) != req.prompt ||
+		   AsString(v["model"]) != req.model ||
+		   (int)v["max_tokens"] != 256 ||
+		   fabs((double)v["temperature"] - 0.7) > 0.001 ||
+		   fabs((double)v["top_p"] - 0.95) > 0.001 ||
+		   (int)v["logprobs"] != 5 ||
+		   !(bool)v["stream"]) {
+			Cerr() << "FAILED: Generated payload fields mismatch:\n" << payload << "\n";
+			return false;
+		}
+
+		Value stop_val = v["stop"];
+		if(!stop_val.Is<ValueArray>() || stop_val.GetCount() != 2 ||
+		   AsString(stop_val[0]) != "\n\n" || AsString(stop_val[1]) != "END") {
+			Cerr() << "FAILED: Stop sequence array mismatch in payload:\n" << payload << "\n";
+			return false;
+		}
+	}
+
+	// 3. Parsing of mock legacy /v1/completions response containing choices text and logprob distributions
+	{
+		String mock_resp_json =
+			"{\n"
+			"  \"id\": \"cmpl-mock-test-42\",\n"
+			"  \"object\": \"text_completion\",\n"
+			"  \"created\": 1730740000,\n"
+			"  \"model\": \"gpt-3.5-turbo-instruct\",\n"
+			"  \"choices\": [\n"
+			"    {\n"
+			"      \"text\": \"Hello world from mock completion\",\n"
+			"      \"index\": 0,\n"
+			"      \"finish_reason\": \"stop\",\n"
+			"      \"logprobs\": {\n"
+			"        \"tokens\": [\"Hello\", \" world\", \" from\", \" mock\", \" completion\"],\n"
+			"        \"token_logprobs\": [-0.012, -0.054, -0.003, -0.210, -0.001],\n"
+			"        \"top_logprobs\": [\n"
+			"          {\"Hello\": -0.012, \"Hi\": -3.450, \"Hey\": -5.100},\n"
+			"          {\" world\": -0.054, \" there\": -2.310},\n"
+			"          {\" from\": -0.003},\n"
+			"          {\" mock\": -0.210, \" fake\": -1.500},\n"
+			"          {\" completion\": -0.001}\n"
+			"        ],\n"
+			"        \"text_offset\": [0, 5, 11, 16, 21]\n"
+			"      }\n"
+			"    }\n"
+			"  ],\n"
+			"  \"usage\": {\n"
+			"    \"prompt_tokens\": 12,\n"
+			"    \"completion_tokens\": 5,\n"
+			"    \"total_tokens\": 17\n"
+			"  }\n"
+			"}";
+
+		CompletionResponse resp;
+		if(!AiServiceProvider::ParseCompletionResponse(mock_resp_json, resp)) {
+			Cerr() << "FAILED: ParseCompletionResponse returned false for valid mock response\n";
+			return false;
+		}
+
+		if(resp.id != "cmpl-mock-test-42" || resp.model != "gpt-3.5-turbo-instruct" ||
+		   resp.choices.GetCount() != 1) {
+			Cerr() << "FAILED: Response header metadata mismatch (id=" << resp.id << ")\n";
+			return false;
+		}
+
+		const CompletionChoice& c0 = resp.choices[0];
+		if(c0.text != "Hello world from mock completion" || c0.finish_reason != "stop") {
+			Cerr() << "FAILED: Choice 0 text or finish_reason mismatch: " << c0.text << " / " << c0.finish_reason << "\n";
+			return false;
+		}
+
+		if(c0.logprobs.GetCount() != 5) {
+			Cerr() << "FAILED: Choice logprobs count mismatch (expected 5, got " << c0.logprobs.GetCount() << ")\n";
+			return false;
+		}
+
+		if(c0.logprobs[0].token != "Hello" || fabs(c0.logprobs[0].logprob - (-0.012)) > 0.0001 ||
+		   c0.logprobs[0].top_logprobs.GetCount() != 3) {
+			Cerr() << "FAILED: Token 0 logprob or candidate distribution mismatch\n";
+			return false;
+		}
+
+		if(c0.logprobs[0].top_logprobs[0].token != "Hello" ||
+		   fabs(c0.logprobs[0].top_logprobs[0].logprob - (-0.012)) > 0.0001) {
+			Cerr() << "FAILED: Token 0 top candidate mismatch\n";
+			return false;
+		}
+
+		if(resp.usage.prompt_tokens != 12 || resp.usage.completion_tokens != 5 || resp.usage.total_tokens != 17) {
+			Cerr() << "FAILED: Usage metrics mismatch in parsed response\n";
+			return false;
+		}
+
+		// Also test convenience method
+		String simple_text, simple_finish;
+		Vector<TokenLogprob> simple_lps;
+		if(!AiServiceProvider::ParseCompletionResponse(mock_resp_json, simple_text, simple_finish, simple_lps) ||
+		   simple_text != "Hello world from mock completion" || simple_finish != "stop" || simple_lps.GetCount() != 5) {
+			Cerr() << "FAILED: Convenience ParseCompletionResponse overload mismatch\n";
+			return false;
+		}
+	}
+
+	// 4. Parsing of SSE chunk containing streamed delta tokens
+	{
+		// 4a. Legacy completion stream
+		String sse_chunk =
+			"data: {\"id\":\"cmpl-s1\",\"choices\":[{\"text\":\"Streamed\",\"index\":0,\"finish_reason\":null}]}\n\n"
+			"data: {\"id\":\"cmpl-s1\",\"choices\":[{\"text\":\" legacy\",\"index\":0,\"finish_reason\":null}]}\n\n"
+			"data: {\"id\":\"cmpl-s1\",\"choices\":[{\"text\":\" tokens\",\"index\":0,\"finish_reason\":\"stop\"}]}\n\n"
+			"data: [DONE]\n\n";
+
+		String delta_text;
+		bool is_done = false;
+		if(!AiServiceProvider::ParseSSEChunk(sse_chunk, delta_text, is_done) ||
+		   delta_text != "Streamed legacy tokens" || !is_done) {
+			Cerr() << "FAILED: SSE legacy chunk parsing failed (text=" << delta_text << ", done=" << is_done << ")\n";
+			return false;
+		}
+
+		// 4b. Chat completion stream with events & logprobs
+		String chat_sse =
+			"event: message\n"
+			"data: {\"id\":\"chat-1\",\"choices\":[{\"delta\":{\"content\":\"Chat\"},\"logprobs\":{\"tokens\":[\"Chat\"],\"token_logprobs\":[-0.05],\"top_logprobs\":[{\"Chat\":-0.05,\"Talk\":-2.0}]}}]}\n\n"
+			"event: message\n"
+			"data: {\"id\":\"chat-1\",\"choices\":[{\"delta\":{\"content\":\" stream\"}}]}\n\n"
+			"data: [DONE]\n\n";
+
+		String chat_text;
+		bool chat_done = false;
+		Vector<TokenLogprob> chat_lps;
+		if(!AiServiceProvider::ParseSSEChunk(chat_sse, chat_text, chat_done, &chat_lps) ||
+		   chat_text != "Chat stream" || !chat_done || chat_lps.GetCount() != 1 ||
+		   chat_lps[0].token != "Chat" || chat_lps[0].top_logprobs.GetCount() != 2) {
+			Cerr() << "FAILED: SSE chat chunk parsing failed (text=" << chat_text << ", done=" << chat_done << ", lps=" << chat_lps.GetCount() << ")\n";
+			return false;
+		}
+	}
+
+	Cout() << "Task 17 PASSED (Verified Provider URLs, Legacy Completion Builder & Parser, Token Logprobs, SSE Streaming)\n";
+	return true;
+}
+
 CONSOLE_APP_MAIN
 {
 	const Vector<String>& cmd = CommandLine();
@@ -363,6 +587,37 @@ CONSOLE_APP_MAIN
 			SetExitCode(success ? 0 : 1);
 			return;
 		}
+		if(test_id == 17) {
+			bool success = RunTest17();
+			SetExitCode(success ? 0 : 1);
+			return;
+		}
+	}
+
+	if(cmd.GetCount() >= 1 && (cmd[0] == "all-tests" || cmd[0] == "--test")) {
+		bool all_ok = true;
+		if(!RunTest15()) all_ok = false;
+		if(!RunTest16()) all_ok = false;
+		if(!RunTest17()) all_ok = false;
+
+		OpenAiCompatibleProvider provider;
+		if(provider.LoadApiKey()) {
+			String model = SelectModelFromAllowed(provider);
+			if(!RunTest8(provider, model)) all_ok = false;
+			if(!RunTest9(provider, model)) all_ok = false;
+			if(!RunTest10(provider, model)) all_ok = false;
+			if(!RunTest11(provider, model)) all_ok = false;
+			if(!RunThinkingTest(provider, model)) all_ok = false;
+		}
+		else {
+			Cout() << "Note: No API key available, online OpenRouter tests skipped.\n";
+		}
+
+		Cout() << "\n=======================================================\n";
+		Cout() << "=== Test Summary: " << (all_ok ? "ALL TESTS PASSED" : "SOME TESTS FAILED") << " ===\n";
+		Cout() << "=======================================================\n";
+		SetExitCode(all_ok ? 0 : 1);
+		return;
 	}
 
 	OpenAiCompatibleProvider provider;
@@ -391,27 +646,14 @@ CONSOLE_APP_MAIN
 			success = RunTest15();
 		else if(test_id == 16)
 			success = RunTest16();
+		else if(test_id == 17)
+			success = RunTest17();
 		else {
 			Cerr() << "Unknown test id: " << test_id << "\n";
 			SetExitCode(1);
 			return;
 		}
 		SetExitCode(success ? 0 : 1);
-		return;
-	}
-
-	if(cmd.GetCount() >= 1 && (cmd[0] == "all-tests" || cmd[0] == "--test")) {
-		bool all_ok = true;
-		if(!RunTest8(provider, model)) all_ok = false;
-		if(!RunTest9(provider, model)) all_ok = false;
-		if(!RunTest10(provider, model)) all_ok = false;
-		if(!RunTest11(provider, model)) all_ok = false;
-		if(!RunThinkingTest(provider, model)) all_ok = false;
-
-		Cout() << "\n=======================================================\n";
-		Cout() << "=== Test Summary: " << (all_ok ? "ALL TESTS PASSED" : "SOME TESTS FAILED") << " ===\n";
-		Cout() << "=======================================================\n";
-		SetExitCode(all_ok ? 0 : 1);
 		return;
 	}
 

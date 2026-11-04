@@ -1,8 +1,10 @@
 description "SuperIntelligence AI Provider Configuration & Manager\377B128,0,0";
 
 uses
-	Core;
+	Core,
+	Core/SSL;
 
 file
+	AGENTS.md,
 	Provider.h,
 	Provider.cpp;
