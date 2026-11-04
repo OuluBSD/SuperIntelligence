@@ -2,6 +2,8 @@
 #define _SuperIntelligence_Ctrl_ChatAiComponent_h_
 
 #include <Vfs/Ctrl/Ctrl.h>
+#include <SuperIntelligence/Provider/Provider.h>
+#include <SweAgent/SweAgent.h>
 
 NAMESPACE_UPP
 
@@ -16,7 +18,12 @@ struct ChatThread : VfsValueExt {
 		Message() { timestamp = GetSysTime(); }
 		Message(const String& r, const String& c) : role(r), content(c) { timestamp = GetSysTime(); }
 
-		void Visit(Vis& v) {
+		void Jsonize(JsonIO& io) {
+			io("role", role)("content", content);
+		}
+
+		template <class VisType>
+		void Visit(VisType& v) {
 			v
 				("role", role)
 				("content", content);
@@ -26,6 +33,9 @@ struct ChatThread : VfsValueExt {
 	String          model_name = "gpt-4o";
 	String          system_instruction = "You are an intelligent AI assistant.";
 	double          temperature = 0.7;
+	bool            swe_mode = true;
+	String          workspace_dir = ".";
+	int             max_steps = 10;
 	Vector<Message> messages;
 
 	ChatThread(VfsValue& n);
@@ -38,6 +48,8 @@ class ChatAiCtrl : public WithChatAiLayout<VfsValueExtCtrl> {
 public:
 	typedef ChatAiCtrl CLASSNAME;
 
+	bool force_mock = false;
+
 	ChatAiCtrl();
 	virtual ~ChatAiCtrl();
 
@@ -45,6 +57,9 @@ public:
 	void SendMessage();
 	void ClearMessages();
 	void SyncToThread();
+
+	void ExecuteSweTask(const String& task);
+	void AddMessage(const String& role, const String& content);
 };
 
 END_UPP_NAMESPACE

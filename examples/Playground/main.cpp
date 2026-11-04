@@ -169,6 +169,101 @@ GUI_APP_MAIN {
 			DeleteFile(temp_file);
 		}
 
+		// Test 4: ChatThread serialization round-trip with SWE mode and trajectory messages
+		{
+			Cout() << "  Testing ChatThread serialization with SWE mode...\n";
+			VfsValue node;
+			ChatThread th(node);
+			th.model_name = "claude-3-5-sonnet";
+			th.system_instruction = "You are an autonomous SWE agent.";
+			th.temperature = 0.5;
+			th.swe_mode = true;
+			th.workspace_dir = "/tmp/test_workspace";
+			th.max_steps = 15;
+			th.messages.Add(ChatThread::Message("user", "Inspect repository"));
+			th.messages.Add(ChatThread::Message("thought", "Listing files"));
+			th.messages.Add(ChatThread::Message("action", "list_dir({})"));
+			th.messages.Add(ChatThread::Message("observation", "main.cpp"));
+			th.messages.Add(ChatThread::Message("assistant", "Found main.cpp"));
+
+			String json = StoreAsJson(th);
+			ASSERT(!json.IsEmpty());
+			ASSERT(json.Find("swe_mode") >= 0);
+			ASSERT(json.Find("workspace_dir") >= 0);
+			ASSERT(json.Find("max_steps") >= 0);
+
+			VfsValue loaded_node;
+			ChatThread loaded_th(loaded_node);
+			LoadFromJson(loaded_th, json);
+
+			ASSERT(loaded_th.model_name == "claude-3-5-sonnet");
+			ASSERT(loaded_th.system_instruction == "You are an autonomous SWE agent.");
+			ASSERT(loaded_th.temperature == 0.5);
+			ASSERT(loaded_th.swe_mode == true);
+			ASSERT(loaded_th.workspace_dir == "/tmp/test_workspace");
+			ASSERT(loaded_th.max_steps == 15);
+			ASSERT(loaded_th.messages.GetCount() == 5);
+			ASSERT(loaded_th.messages[0].role == "user" && loaded_th.messages[0].content == "Inspect repository");
+			ASSERT(loaded_th.messages[1].role == "thought" && loaded_th.messages[1].content == "Listing files");
+			ASSERT(loaded_th.messages[2].role == "action" && loaded_th.messages[2].content == "list_dir({})");
+			ASSERT(loaded_th.messages[3].role == "observation" && loaded_th.messages[3].content == "main.cpp");
+			ASSERT(loaded_th.messages[4].role == "assistant" && loaded_th.messages[4].content == "Found main.cpp");
+		}
+
+		// Test 5: ChatAiCtrl in SWE Agent mode executing a task with event callbacks
+		{
+			Cout() << "  Testing ChatAiCtrl SWE Agent task execution and event callbacks...\n";
+			VfsValue node;
+			ChatThread th(node);
+			th.swe_mode = true;
+			th.workspace_dir = ".";
+			th.max_steps = 5;
+
+			ChatAiCtrl ctrl;
+			ctrl.force_mock = true;
+			ctrl.ext = &th;
+			ctrl.Data();
+
+			// Execute task
+			ctrl.ExecuteSweTask("Inspect repository contents");
+
+			// Verify messages populated in ChatThread
+			ASSERT(th.messages.GetCount() >= 5);
+
+			bool has_user = false;
+			bool has_thought = false;
+			bool has_action = false;
+			bool has_observation = false;
+			bool has_assistant = false;
+
+			for (int i = 0; i < th.messages.GetCount(); i++) {
+				const auto& m = th.messages[i];
+				if (m.role == "user") has_user = true;
+				if (m.role == "thought") has_thought = true;
+				if (m.role == "action") has_action = true;
+				if (m.role == "observation") has_observation = true;
+				if (m.role == "assistant") has_assistant = true;
+			}
+
+			ASSERT(has_user);
+			ASSERT(has_thought);
+			ASSERT(has_action);
+			ASSERT(has_observation);
+			ASSERT(has_assistant);
+
+			// Verify UI ArrayCtrl rows match ChatThread messages
+			ASSERT(ctrl.messages.GetCount() == th.messages.GetCount());
+
+			// Also test SendMessage() with SWE mode enabled
+			int count_before = th.messages.GetCount();
+			ctrl.input.SetData("Check git status");
+			ctrl.SendMessage();
+			ASSERT(th.messages.GetCount() > count_before);
+			ASSERT(ctrl.messages.GetCount() == th.messages.GetCount());
+
+			ctrl.ext = nullptr;
+		}
+
 		Cout() << "Playground: Automated self-test passed successfully!\n";
 		win.app.ClearExtensionCtrl();
 		win.app.GetRoot().sub.Clear();

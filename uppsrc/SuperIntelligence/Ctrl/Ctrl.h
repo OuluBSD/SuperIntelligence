@@ -3,6 +3,7 @@
 
 #include <Vfs/Ctrl/Ctrl.h>
 #include <SuperIntelligence/Provider/Provider.h>
+#include <SweAgent/SweAgent.h>
 
 #define LAYOUTFILE <SuperIntelligence/Ctrl/Playground.lay>
 #include <Ctrl/Core/lay.h>

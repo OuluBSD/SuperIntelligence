@@ -2,7 +2,8 @@ description "SuperIntelligence AI Playground GUI Workbench\377B128,0,0";
 
 uses
 	Vfs/Ctrl,
-	SuperIntelligence/Provider;
+	SuperIntelligence/Provider,
+	SweAgent;
 
 file
 	Playground.lay,
