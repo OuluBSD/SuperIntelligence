@@ -11,6 +11,7 @@ struct TokenCandidate : Moveable<TokenCandidate> {
 	double logprob = 0.0;
 
 	TokenCandidate() = default;
+	TokenCandidate(const String& t, double lp = 0.0) : token(t), logprob(lp) {}
 	TokenCandidate(const TokenCandidate&) = default;
 	TokenCandidate(TokenCandidate&&) = default;
 	TokenCandidate& operator=(const TokenCandidate&) = default;
@@ -18,6 +19,11 @@ struct TokenCandidate : Moveable<TokenCandidate> {
 
 	void Jsonize(JsonIO& io) {
 		io("token", token)("logprob", logprob);
+	}
+
+	template <class VisType>
+	void Visit(VisType& v) {
+		v("token", token)("logprob", logprob);
 	}
 };
 
@@ -27,6 +33,7 @@ struct TokenLogprob : Moveable<TokenLogprob> {
 	Vector<TokenCandidate> top_logprobs;
 
 	TokenLogprob() = default;
+	TokenLogprob(const String& t, double lp = 0.0) : token(t), logprob(lp) {}
 	TokenLogprob(const TokenLogprob& o, int)
 		: token(o.token), logprob(o.logprob), top_logprobs(o.top_logprobs, 1) {}
 	TokenLogprob(const TokenLogprob& o)
@@ -42,6 +49,11 @@ struct TokenLogprob : Moveable<TokenLogprob> {
 
 	void Jsonize(JsonIO& io) {
 		io("token", token)("logprob", logprob)("top_logprobs", top_logprobs);
+	}
+
+	template <class VisType>
+	void Visit(VisType& v) {
+		v("token", token)("logprob", logprob)("top_logprobs", top_logprobs, 0);
 	}
 };
 
