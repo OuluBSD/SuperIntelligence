@@ -21,6 +21,8 @@ public:
 	void InitDemoWorkspace();
 };
 
+void RunAiPlayground();
+
 END_UPP_NAMESPACE
 
 #endif

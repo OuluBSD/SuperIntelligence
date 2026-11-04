@@ -71,4 +71,8 @@ void PlaygroundWindow::InitDemoWorkspace() {
 	app.SyncTree();
 }
 
+void RunAiPlayground() {
+	PlaygroundWindow().Run();
+}
+
 END_UPP_NAMESPACE
