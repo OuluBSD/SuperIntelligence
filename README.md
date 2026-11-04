@@ -10,17 +10,28 @@ Professional LLM runtime, SweAgent, prompting chains, and agent architectures fo
 
 ## Packages
 
-- **`uppsrc/SweAgent`**: Headless SWE-agent framework supporting OpenRouter, Anthropic, OpenAI, DeepSeek, and custom LLM endpoints with in-process C++ event callbacks (`WhenReasoning`, `WhenAction`, `WhenObservation`, `WhenFinished`).
+- **`uppsrc/SweAgent`**: Headless SWE-agent framework supporting OpenRouter, Anthropic, OpenAI, DeepSeek, and custom LLM endpoints with in-process C++ event callbacks (`WhenReasoning`, `WhenAction`, `WhenObservation`, `WhenFinished`). Strictly headless (zero GUI dependencies) for direct inclusion in headless pipelines and IDEs.
+- **`uppsrc/SuperIntelligence/Provider`**: Headless AI service provider configuration and manager (`AiServiceProviderManager`, `AiManager()`) with JSON persistence.
+- **`uppsrc/SuperIntelligence/Ctrl`**: AI Playground workbench controls (`CompletionCtrl`, `ChatAiCtrl`, `AiSetupDlg`, `PlaygroundWindow`) inheriting the `VfsTreeAppWindow` template from `OuluBSD/VFS`.
+- **`examples/Playground`**: Standalone AI Playground application featuring tree-driven multi-session text completion and chat workbench.
 
 ## Building with UppBuilder
 
 ```bash
+# Build headless SweAgentDemo
 uppbuilder examples/SweAgentDemo --bazaarcore ../BazaarCore -v
+
+# Build standalone AI Playground workbench
+uppbuilder examples/Playground --bazaarcore ../BazaarCore --vfs ../VFS -v
 ```
 
 ## Running
 
 ```bash
+# Run headless SweAgent tests
 ./bin/SweAgentDemo test 15
 ./bin/SweAgentDemo test 16
+
+# Run Playground automated self-test
+./bin/Playground --test
 ```

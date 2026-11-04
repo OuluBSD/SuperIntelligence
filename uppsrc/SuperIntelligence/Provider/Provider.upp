@@ -1,0 +1,8 @@
+description "SuperIntelligence AI Provider Configuration & Manager\377B128,0,0";
+
+uses
+	Core;
+
+file
+	Provider.h,
+	Provider.cpp;

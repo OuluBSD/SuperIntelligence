@@ -1,0 +1,10 @@
+description "Standalone AI Playground Workbench Application\377B128,0,0";
+
+uses
+	SuperIntelligence/Ctrl;
+
+file
+	main.cpp;
+
+mainconfig
+	"" = "GUI";

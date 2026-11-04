@@ -1,0 +1,58 @@
+LAYOUT(CompletionLayout, 700, 480)
+	ITEM(Upp::LabelBox, dv___0, SetLabel(t_("Parameters")).LeftPosZ(8, 240).VSizePosZ(8, 8))
+	ITEM(Upp::Label, dv___1, SetLabel(t_("Model:")).LeftPosZ(16, 60).TopPosZ(28, 20))
+	ITEM(Upp::DropList, model_name, LeftPosZ(80, 160).TopPosZ(28, 20))
+	ITEM(Upp::Label, dv___3, SetLabel(t_("Temperature:")).LeftPosZ(16, 80).TopPosZ(56, 20))
+	ITEM(Upp::EditDoubleSpin, temperature, LeftPosZ(100, 140).TopPosZ(56, 20))
+	ITEM(Upp::Label, dv___5, SetLabel(t_("Max Tokens:")).LeftPosZ(16, 80).TopPosZ(84, 20))
+	ITEM(Upp::EditIntSpin, max_tokens, LeftPosZ(100, 140).TopPosZ(84, 20))
+	ITEM(Upp::Label, dv___7, SetLabel(t_("Top P:")).LeftPosZ(16, 80).TopPosZ(112, 20))
+	ITEM(Upp::EditDoubleSpin, top_p, LeftPosZ(100, 140).TopPosZ(112, 20))
+	ITEM(Upp::Label, dv___9, SetLabel(t_("Stop Seq:")).LeftPosZ(16, 80).TopPosZ(140, 20))
+	ITEM(Upp::EditString, stop_seq, LeftPosZ(100, 140).TopPosZ(140, 20))
+
+	ITEM(Upp::LabelBox, dv___11, SetLabel(t_("Prompt & Completion")).HSizePosZ(256, 8).VSizePosZ(8, 44))
+	ITEM(Upp::DocEdit, prompt, HSizePosZ(264, 16).VSizePosZ(28, 52))
+	ITEM(Upp::Button, submit, SetLabel(t_("Submit")).RightPosZ(8, 100).BottomPosZ(10, 26))
+	ITEM(Upp::Button, clear, SetLabel(t_("Clear")).RightPosZ(116, 80).BottomPosZ(10, 26))
+END_LAYOUT
+
+LAYOUT(ChatAiLayout, 700, 480)
+	ITEM(Upp::LabelBox, dv___0, SetLabel(t_("Chat Configuration")).LeftPosZ(8, 240).VSizePosZ(8, 8))
+	ITEM(Upp::Label, dv___1, SetLabel(t_("Model:")).LeftPosZ(16, 60).TopPosZ(28, 20))
+	ITEM(Upp::DropList, model_name, LeftPosZ(80, 160).TopPosZ(28, 20))
+	ITEM(Upp::Label, dv___3, SetLabel(t_("System:")).LeftPosZ(16, 60).TopPosZ(56, 20))
+	ITEM(Upp::DocEdit, system_instruction, LeftPosZ(16, 224).TopPosZ(80, 120))
+	ITEM(Upp::Label, dv___5, SetLabel(t_("Temperature:")).LeftPosZ(16, 80).TopPosZ(208, 20))
+	ITEM(Upp::EditDoubleSpin, temperature, LeftPosZ(100, 140).TopPosZ(208, 20))
+
+	ITEM(Upp::LabelBox, dv___7, SetLabel(t_("Messages")).HSizePosZ(256, 8).VSizePosZ(8, 120))
+	ITEM(Upp::ArrayCtrl, messages, HSizePosZ(264, 16).VSizePosZ(28, 128))
+
+	ITEM(Upp::LabelBox, dv___9, SetLabel(t_("User Input")).HSizePosZ(256, 8).BottomPosZ(8, 108))
+	ITEM(Upp::DocEdit, input, HSizePosZ(264, 124).BottomPosZ(16, 76))
+	ITEM(Upp::Button, send, SetLabel(t_("Send")).RightPosZ(16, 100).BottomPosZ(40, 32))
+	ITEM(Upp::Button, clear_chat, SetLabel(t_("Clear")).RightPosZ(16, 100).BottomPosZ(16, 22))
+END_LAYOUT
+
+LAYOUT(SetupAiLayout, 560, 420)
+	ITEM(Upp::LabelBox, dv___0, SetLabel(t_("Configured Providers & Accounts")).HSizePosZ(8, 8).TopPosZ(8, 180))
+	ITEM(Upp::ArrayCtrl, providers, HSizePosZ(16, 16).TopPosZ(28, 120))
+	ITEM(Upp::Button, add, SetLabel(t_("Add")).RightPosZ(16, 80).TopPosZ(152, 24))
+	ITEM(Upp::Button, remove, SetLabel(t_("Delete")).RightPosZ(104, 80).TopPosZ(152, 24))
+
+	ITEM(Upp::LabelBox, dv___4, SetLabel(t_("Provider Details")).HSizePosZ(8, 8).VSizePosZ(196, 48))
+	ITEM(Upp::Label, dv___5, SetLabel(t_("Name:")).LeftPosZ(16, 60).TopPosZ(220, 20))
+	ITEM(Upp::EditString, name, HSizePosZ(80, 16).TopPosZ(220, 20))
+	ITEM(Upp::Label, dv___7, SetLabel(t_("Type:")).LeftPosZ(16, 60).TopPosZ(248, 20))
+	ITEM(Upp::DropList, type, HSizePosZ(80, 16).TopPosZ(248, 20))
+	ITEM(Upp::Label, dv___9, SetLabel(t_("Endpoint URL:")).LeftPosZ(16, 90).TopPosZ(276, 20))
+	ITEM(Upp::EditString, url, HSizePosZ(110, 16).TopPosZ(276, 20))
+	ITEM(Upp::Label, dv___11, SetLabel(t_("API Token / Key:")).LeftPosZ(16, 110).TopPosZ(304, 20))
+	ITEM(Upp::EditString, token, HSizePosZ(130, 16).TopPosZ(304, 20))
+	ITEM(Upp::Label, dv___13, SetLabel(t_("Priority:")).LeftPosZ(16, 60).TopPosZ(332, 20))
+	ITEM(Upp::EditIntSpin, priority, LeftPosZ(80, 80).TopPosZ(332, 20))
+
+	ITEM(Upp::Button, ok, SetLabel(t_("OK")).RightPosZ(16, 80).BottomPosZ(10, 26))
+	ITEM(Upp::Button, cancel, SetLabel(t_("Cancel")).RightPosZ(104, 80).BottomPosZ(10, 26))
+END_LAYOUT

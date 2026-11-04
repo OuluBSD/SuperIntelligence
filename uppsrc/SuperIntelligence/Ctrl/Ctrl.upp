@@ -1,0 +1,17 @@
+description "SuperIntelligence AI Playground GUI Workbench\377B128,0,0";
+
+uses
+	Vfs/Ctrl,
+	SuperIntelligence/Provider;
+
+file
+	Playground.lay,
+	AiSetupCtrl.h,
+	AiSetupCtrl.cpp,
+	CompletionComponent.h,
+	CompletionComponent.cpp,
+	ChatAiComponent.h,
+	ChatAiComponent.cpp,
+	PlaygroundWindow.h,
+	PlaygroundWindow.cpp,
+	Ctrl.h;
