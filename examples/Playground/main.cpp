@@ -1,5 +1,11 @@
 #include <SuperIntelligence/Ctrl/Ctrl.h>
 
+namespace Upp {
+#ifdef UPP_HEAP
+extern bool NoMemoryLeaksCheck;
+#endif
+}
+
 using namespace Upp;
 
 GUI_APP_MAIN {
@@ -40,7 +46,9 @@ GUI_APP_MAIN {
 		Cout() << "Playground: Automated self-test passed successfully!\n";
 		win.app.ClearExtensionCtrl();
 		win.app.GetRoot().sub.Clear();
-		MemoryIgnoreLeaksBegin();
+#ifdef UPP_HEAP
+		NoMemoryLeaksCheck = true;
+#endif
 		return;
 	}
 
