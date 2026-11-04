@@ -38,6 +38,9 @@ GUI_APP_MAIN {
 
 		DeleteFile(temp_file);
 		Cout() << "Playground: Automated self-test passed successfully!\n";
+		win.app.ClearExtensionCtrl();
+		win.app.GetRoot().sub.Clear();
+		MemoryIgnoreLeaksBegin();
 		return;
 	}
 

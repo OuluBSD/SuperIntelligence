@@ -14,6 +14,10 @@ void RegisterPlaygroundComponents() {
 	VfsValueExtFactory::RegisterCtrl<ChatThread, ChatAiCtrl>("ChatAiCtrl");
 }
 
+INITIALIZER(PlaygroundComponents) {
+	RegisterPlaygroundComponents();
+}
+
 PlaygroundWindow::PlaygroundWindow() {
 	RegisterPlaygroundComponents();
 
