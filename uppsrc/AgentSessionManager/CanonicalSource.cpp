@@ -429,7 +429,7 @@ CanonicalSession AntigravityToCanonical(const SessionEntry& s)
 		part.stamp_ms = stamp;
 		for(int k = 0; k < strings.GetCount(); k++) {
 			if(k)
-				part.text << "\n\n";
+				part.text << "\n";
 			part.text << strings[k];
 		}
 		ValueMap pmeta;

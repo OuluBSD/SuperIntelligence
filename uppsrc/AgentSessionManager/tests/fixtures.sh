@@ -108,7 +108,7 @@ def ld(field, payload):
 
 con = sqlite3.connect(os.path.join(adir, "conversations", asid + ".db"))
 con.execute("CREATE TABLE steps (idx INTEGER, step_type INTEGER, status INTEGER, step_payload BLOB)")
-s0 = b"\x08" + varint(1767236649) + ld(2, b"fixture step text 0") + b"\x00\x28\x39"
+s0 = b"\x08" + varint(1767236649) + ld(2, b"fixture step text 0") + b"\x00" + ld(2, b"line two") + b"\x00\x28\x39"
 s1 = b"\x08" + varint(1767236650) + ld(2, b"\x08" + varint(1767236650) + ld(2, b"fixture step text 1") + b"\x00-3750763034362895579") + b"\x00" + ld(2, b"1234-5678") + b"\x00" + ld(2, b"$weird")
 con.execute("INSERT INTO steps VALUES (?,?,?,?)", (0, 14, 3, s0))
 con.execute("INSERT INTO steps VALUES (?,?,?,?)", (1, 15, 3, s1))
@@ -152,7 +152,7 @@ chkpy "antigravity dump content" "$FAKE/dump_ant.txt" <<'EOF'
 import sys
 t = open(sys.argv[1]).read()
 assert t.startswith("# Fixture preview\n\nSource: antigravity | Session: `aaaaaaaa-1111-2222-3333-444444444444` | Directory: `/tmp/fixture-proj`\n\n"), t[:140]
-assert "## Step 1 (type 14, status 3) 1 - 2026-01-01T03:04:09Z\n\nfixture step text 0\n\n" in t
+assert "## Step 1 (type 14, status 3) 1 - 2026-01-01T03:04:09Z\n\nfixture step text 0\n\nline two\n\n" in t
 assert "## Step 2 (type 15, status 3) 2 - 2026-01-01T03:04:10Z\n\nfixture step text 1\n\n" in t
 assert "3750763034362895579" not in t and "1234-5678" not in t and "$weird" not in t
 assert "(type 14, status 3)" in t and "(type 15, status 3)" in t
@@ -217,7 +217,7 @@ assert d["source"] == "antigravity" and len(d["messages"]) == 2
 m0, m1 = d["messages"]
 assert m0["role"] == "user" and m0["id"] == "step-0" and m0["stamp_ms"] == 1767236649000
 assert m1["role"] == "assistant" and m1["stamp_ms"] == 1767236650000
-assert m0["parts"][0]["text"] == "fixture step text 0"
+assert m0["parts"][0]["text"] == "fixture step text 0\nline two"
 assert m0["parts"][0]["meta"] == {"idx": 0, "step_type": 14, "status": 3}
 EOF
 
