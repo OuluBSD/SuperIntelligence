@@ -29,6 +29,7 @@
 | `SuperIntelligence/Ctrl` | `uppsrc/SuperIntelligence/Ctrl` | Library (GUI) | Completion, Chat, and Provider setup views |
 | `examples/SweAgentDemo` | `examples/SweAgentDemo` | Console App | SWE-agent test suite and runner |
 | `examples/Playground` | `examples/Playground` | GUI App | Standalone AI Playground workbench |
+| `AgentSessionManager` | `uppsrc/AgentSessionManager` | Console App | AI agent CLI session inspector and converter (Claude, Kilo, Antigravity) |
 
 ---
 
@@ -42,4 +43,9 @@ uppbuilder examples/SweAgentDemo -m CLANG
 # Playground build and automated self-test
 uppbuilder examples/Playground -m CLANG
 ./bin/Playground --test
+
+# AgentSessionManager build and verification suite (reads live session data)
+uppbuilder AgentSessionManager -m CLANG
+./bin/AgentSessionManager --man
+uppsrc/AgentSessionManager/tests/parity.sh
 ```

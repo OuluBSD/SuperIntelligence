@@ -1,0 +1,25 @@
+description "List, dump, and monitor Claude, Kilo, and Antigravity sessions\377";
+
+uses
+	Core,
+	plugin/sqlite3;
+
+file
+	AGENTS.md,
+	AgentSessionManager.h,
+	SessionModel.h,
+	SessionModel.cpp,
+	SqliteRo.h,
+	SqliteRo.cpp,
+	Canonical.h,
+	Canonical.cpp,
+	CanonicalSource.cpp,
+	Convert.cpp,
+	ClaudeSource.cpp,
+	KiloSource.cpp,
+	AntigravitySource.cpp,
+	SessionStore.cpp,
+	AgentSessionManager.cpp;
+
+mainconfig
+	"" = "";
