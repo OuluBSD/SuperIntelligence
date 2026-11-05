@@ -49,17 +49,21 @@ static ValueMap CopyMapSkipping(const ValueMap& src, const char *skip1, const ch
 
 static Value PartOutputText(const CanonicalPart& p)
 {
-	if(p.output_json.IsEmpty())
-		return Value(String());
-	Value ov = ParseJsonValue(p.output_json);
-	if(IsString(ov))
-		return ov;
-	if(ov.IsNull())
-		return Value(p.output_json);
-	return Value(DumpJson(ov, false, false));
+	if(!p.output_json.IsEmpty()) {
+		Value ov = ParseJsonValue(p.output_json);
+		if(IsString(ov))
+			return ov;
+		if(ov.IsNull())
+			return Value(p.output_json);
+		return Value(DumpJson(ov, false, false));
+	}
+	if(p.type == "tool_result" && !p.text.IsEmpty())
+		return Value(p.text);
+	return Value(String());
 }
 
-static Value KiloToolState(const CanonicalPart& p, const CanonicalMessage& msg, const CanonicalSession& s)
+static Value KiloToolState(const CanonicalPart& p, const CanonicalMessage& msg, const CanonicalSession& s,
+	const Value& resolved_output)
 {
 	ValueMap state;
 	int64 start = p.stamp_ms > 0 ? p.stamp_ms : (msg.stamp_ms > 0 ? msg.stamp_ms : s.updated_ms);
@@ -73,7 +77,7 @@ static Value KiloToolState(const CanonicalPart& p, const CanonicalMessage& msg, 
 	if(p.status == "error") {
 		state.Add("status", Value("error"));
 		state.Add("input", Value(input));
-		state.Add("error", Value(PartOutputText(p)));
+		state.Add("error", IsNull(resolved_output) ? Value(String()) : resolved_output);
 		state.Add("metadata", Value(ValueMap()));
 		ValueMap t;
 		t.Add("start", Value(start));
@@ -83,7 +87,7 @@ static Value KiloToolState(const CanonicalPart& p, const CanonicalMessage& msg, 
 	}
 	state.Add("status", Value("completed"));
 	state.Add("input", Value(input));
-	state.Add("output", PartOutputText(p));
+	state.Add("output", IsNull(resolved_output) ? Value(String()) : resolved_output);
 	state.Add("title", Value(p.tool.IsEmpty() ? String("tool") : p.tool));
 	state.Add("metadata", Value(ValueMap()));
 	ValueMap t;
@@ -109,6 +113,11 @@ static Value KiloPartJson(const CanonicalPart& p, const CanonicalMessage& msg, c
 	}
 	String pid = GenKiloId("prt");
 	if(p.type == "tool_use") {
+		Value outv;
+		if(!p.output_json.IsEmpty())
+			outv = PartOutputText(p);
+		else
+			outv = result_text_by_call.Get(p.call_id, Value(String()));
 		ValueMap m;
 		m.Add("id", Value(pid));
 		m.Add("sessionID", Value(sid));
@@ -116,7 +125,7 @@ static Value KiloPartJson(const CanonicalPart& p, const CanonicalMessage& msg, c
 		m.Add("type", Value("tool"));
 		m.Add("callID", Value(p.call_id.IsEmpty() ? GenCallId() : p.call_id));
 		m.Add("tool", Value(p.tool.IsEmpty() ? String("tool") : p.tool));
-		m.Add("state", KiloToolState(p, msg, s));
+		m.Add("state", KiloToolState(p, msg, s, outv));
 		return Value(m);
 	}
 	if(p.type == "reasoning") {
@@ -158,6 +167,52 @@ static Value KiloMessageInfo(const CanonicalMessage& msg, const CanonicalSession
 		ValueMap rest = CopyMapSkipping(ValueMap(src), "id", "sessionID", NULL);
 		for(int i = 0; i < rest.GetCount(); i++)
 			out.Add(rest.GetKey(i), rest.GetValue(i));
+		int64 stamp = msg.stamp_ms > 0 ? msg.stamp_ms : s.updated_ms;
+		if(ValueStr(rest.Get("role")) == "assistant") {
+			if(rest.Get("parentID").IsNull())
+				out.Add("parentID", Value(prev_mid.IsEmpty() ? mid : prev_mid));
+			if(rest.Get("modelID").IsNull())
+				out.Add("modelID", Value(String("unknown")));
+			if(rest.Get("providerID").IsNull())
+				out.Add("providerID", Value(String("unknown")));
+			if(rest.Get("mode").IsNull())
+				out.Add("mode", Value(String("build")));
+			if(rest.Get("agent").IsNull())
+				out.Add("agent", Value(String("code")));
+			if(rest.Get("path").IsNull()) {
+				ValueMap path;
+				path.Add("cwd", Value(s.directory));
+				path.Add("root", Value(s.directory));
+				out.Add("path", Value(path));
+			}
+			if(rest.Get("cost").IsNull())
+				out.Add("cost", Value((double)0.0));
+			if(rest.Get("tokens").IsNull()) {
+				ValueMap tokens;
+				tokens.Add("input", Value((int64)0));
+				tokens.Add("output", Value((int64)0));
+				tokens.Add("reasoning", Value((int64)0));
+				ValueMap cache;
+				cache.Add("read", Value((int64)0));
+				cache.Add("write", Value((int64)0));
+				tokens.Add("cache", Value(cache));
+				out.Add("tokens", Value(tokens));
+			}
+		} else {
+			if(rest.Get("agent").IsNull())
+				out.Add("agent", Value(String("code")));
+			if(rest.Get("model").IsNull()) {
+				ValueMap model;
+				model.Add("providerID", Value(String("unknown")));
+				model.Add("modelID", Value(String("unknown")));
+				out.Add("model", Value(model));
+			}
+			if(rest.Get("time").IsNull()) {
+				ValueMap tm;
+				tm.Add("created", Value(stamp));
+				out.Add("time", Value(tm));
+			}
+		}
 		return Value(out);
 	}
 	String role = msg.role == "assistant" ? "assistant" : "user";
@@ -373,7 +428,8 @@ static void ClaudeBlockJson(ValueMap& b, const CanonicalPart& p)
 	}
 }
 
-bool WriteClaudeJsonl(const CanonicalSession& s, const String& path, String& error)
+bool WriteClaudeJsonl(const CanonicalSession& s, const String& path, String& error,
+	const String& to_directory, const String& session_id_override)
 {
 	FileOut out(path);
 	if(!out) {
@@ -381,9 +437,32 @@ bool WriteClaudeJsonl(const CanonicalSession& s, const String& path, String& err
 		return false;
 	}
 	bool kilo_source = s.source == "kilo";
+	String sid = session_id_override.IsEmpty() ? s.id : session_id_override;
+	String cwd = to_directory.IsEmpty() ? s.directory : to_directory;
+	bool rehome = !to_directory.IsEmpty() || !session_id_override.IsEmpty();
 	for(int i = 0; i < s.messages.GetCount(); i++) {
 		const CanonicalMessage& msg = s.messages[i];
 		if(s.source == "claude" && !msg.src_json.IsEmpty()) {
+			if(rehome) {
+				Value v = ParseJsonValue(msg.src_json);
+				if(IsValueMap(v)) {
+					ValueMap m = v;
+					ValueMap rewritten;
+					for(int k = 0; k < m.GetCount(); k++) {
+						Value key = m.GetKey(k);
+						String ks = IsString(key) ? String(key) : key.ToString();
+						if(ks == "sessionId")
+							rewritten.Add(key, Value(sid));
+						else if(ks == "cwd")
+							rewritten.Add(key, Value(cwd));
+						else
+							rewritten.Add(key, m.GetValue(k));
+					}
+					out.Put(DumpJson(Value(rewritten), false, false, true));
+					out.Put("\n");
+					continue;
+				}
+			}
 			out.Put(msg.src_json);
 			out.Put("\n");
 			continue;
@@ -395,8 +474,8 @@ bool WriteClaudeJsonl(const CanonicalSession& s, const String& path, String& err
 		ValueMap record;
 		record.Add("type", Value(msg.role == "assistant" ? String("assistant") : String("user")));
 		record.Add("timestamp", Value(iso));
-		record.Add("sessionId", Value(s.id));
-		record.Add("cwd", Value(s.directory));
+		record.Add("sessionId", Value(sid));
+		record.Add("cwd", Value(cwd));
 		record.Add("uuid", Value(uuid));
 		ValueMap message;
 		message.Add("role", Value(msg.role == "assistant" ? String("assistant") : String("user")));
@@ -427,8 +506,8 @@ bool WriteClaudeJsonl(const CanonicalSession& s, const String& path, String& err
 				ValueMap tresult;
 				tresult.Add("type", Value(String("user")));
 				tresult.Add("timestamp", Value(iso));
-				tresult.Add("sessionId", Value(s.id));
-				tresult.Add("cwd", Value(s.directory));
+				tresult.Add("sessionId", Value(sid));
+				tresult.Add("cwd", Value(cwd));
 				tresult.Add("uuid", Value(tool_uuid));
 				ValueMap tmsg;
 				tmsg.Add("role", Value(String("user")));
@@ -454,22 +533,23 @@ bool WriteClaudeJsonl(const CanonicalSession& s, const String& path, String& err
 	return true;
 }
 
-bool InstallClaudeJsonl(const CanonicalSession& s, const String& path, String& installed_path, String& error)
+bool InstallClaudeJsonl(const String& directory, const String& session_id, const String& path,
+	String& installed_path, String& error)
 {
-	if(s.directory.IsEmpty()) {
+	if(directory.IsEmpty()) {
 		error = "session has no directory; cannot locate ~/.claude/projects";
 		return false;
 	}
 	String slug;
-	for(int i = 0; i < s.directory.GetCount(); i++)
-		slug.Cat(s.directory[i] == '/' ? '-' : s.directory[i]);
+	for(int i = 0; i < directory.GetCount(); i++)
+		slug.Cat(directory[i] == '/' ? '-' : directory[i]);
 	String dir = AppendFileName(HomePath(".claude/projects"), slug);
 	if(!DirectoryCreate(dir))
 		if(!DirectoryExists(dir)) {
 			error = "cannot create " + dir;
 			return false;
 		}
-	String target = AppendFileName(dir, s.id + ".jsonl");
+	String target = AppendFileName(dir, session_id + ".jsonl");
 	if(FileExists(target)) {
 		error = "claude session file already exists: " + target + " (remove it first)";
 		return false;

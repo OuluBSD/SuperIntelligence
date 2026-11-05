@@ -97,6 +97,11 @@ int64 SqliteStatement::Int(int col)
 	return stmt ? sqlite3_column_int64(stmt, col) : 0;
 }
 
+double SqliteStatement::Double(int col)
+{
+	return stmt ? sqlite3_column_double(stmt, col) : 0.0;
+}
+
 String SqliteStatement::Blob(int col)
 {
 	if(!stmt)

@@ -99,7 +99,7 @@ static void PartToJson(ValueMap& m, const CanonicalPart& p)
 	if(!p.status.IsEmpty())
 		m.Add("status", Value(p.status));
 	if(!p.call_id.IsEmpty())
-		m.Add("callID", Value(p.call_id));
+		m.Add("call_id", Value(p.call_id));
 	if(!p.input_json.IsEmpty()) {
 		Value iv = ParseJsonValue(p.input_json);
 		if(iv.IsNull())
@@ -229,7 +229,7 @@ bool CanonicalFromJson(const Value& v, CanonicalSession& s, String& error)
 				part.text = GetStrField(pm, "text");
 				part.tool = GetStrField(pm, "tool");
 				part.status = GetStrField(pm, "status");
-				part.call_id = GetStrField(pm, "callID");
+				part.call_id = GetStrField(pm, "call_id");
 				Value iv = pm.Get("input");
 				if(!iv.IsNull())
 					part.input_json = DumpJson(iv, false, false);

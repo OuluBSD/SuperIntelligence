@@ -44,8 +44,9 @@ uppbuilder examples/SweAgentDemo -m CLANG
 uppbuilder examples/Playground -m CLANG
 ./bin/Playground --test
 
-# AgentSessionManager build and verification suite (reads live session data)
+# AgentSessionManager build and verification suites (live data + synthetic fixtures)
 uppbuilder AgentSessionManager -m CLANG
 ./bin/AgentSessionManager --man
-uppsrc/AgentSessionManager/tests/parity.sh
+uppsrc/AgentSessionManager/tests/parity.sh     # parity + conversion (live data, read-only)
+uppsrc/AgentSessionManager/tests/fixtures.sh   # fixture-based, self-contained, CI-safe
 ```

@@ -64,9 +64,11 @@ CanonicalSession AntigravityToCanonical(const SessionEntry& s);
 CanonicalSession ToCanonical(const SessionEntry& s);
 
 Value  ToKiloExportJson(const CanonicalSession& s, bool fresh_session_id, String& error);
-bool   WriteClaudeJsonl(const CanonicalSession& s, const String& path, String& error);
+bool   WriteClaudeJsonl(const CanonicalSession& s, const String& path, String& error,
+	const String& to_directory = String(), const String& session_id_override = String());
 bool   KiloImportFile(const String& file, const String& cwd, String& message);
-bool   InstallClaudeJsonl(const CanonicalSession& s, const String& path, String& installed_path, String& error);
+bool   InstallClaudeJsonl(const String& directory, const String& session_id, const String& path,
+	String& installed_path, String& error);
 
 END_UPP_NAMESPACE
 

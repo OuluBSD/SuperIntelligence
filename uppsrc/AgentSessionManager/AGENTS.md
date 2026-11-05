@@ -25,7 +25,15 @@ Pipeline: `source (read-only) -> CanonicalSession IR -> target writer`.
   `WriteClaudeJsonl`, `KiloImportFile` (runs official `kilo import`).
 - CLI: `canonical SESSION [--out FILE|-]` and
   `convert SESSION TARGET [--out FILE] [--emit-canonical F] [--from-canonical F]
-  [--force] [--dry-run] [--import] [--keep-id]`.
+  [--force] [--dry-run] [--import] [--install] [--keep-id] [--to-directory DIR]`.
+- `--to-directory` re-homes a conversion: claude records get a fresh session id
+  and the new cwd (uuid/parentUuid chains preserved); `--import` lands the kilo
+  session in that project. claude-source re-homes regenerate the session id;
+  antigravity/kilo sources keep their ids unless claude re-home.
+- Tests: `tests/parity.sh` (live data, read-only + one approved kilo import
+  round trip) and `tests/fixtures.sh` (synthetic HOME, self-contained, CI-safe:
+  exact-value checks for list/dump/state/changes/cookie cursors, canonical
+  fidelity incl. verbatim src payloads, cross round trips, re-home).
 
 ### Kilo interchange rules (learned from Kilo-Org/kilocode@7.7.9 source)
 - The live kilo DB is event-sourced; NEVER write it directly. The only write

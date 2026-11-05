@@ -23,6 +23,8 @@ CanonicalSession ClaudeToCanonical(const SessionEntry& s)
 			String line = lines[i];
 			if(line.GetCount() > 0 && line[line.GetCount() - 1] == '\r')
 				line = line.Left(line.GetCount() - 1);
+			if(line.IsEmpty())
+				continue;
 			Value v = ParseJsonValue(line);
 			if(v.IsNull() || !IsValueMap(v)) {
 				skipped++;
@@ -159,7 +161,7 @@ CanonicalSession KiloToCanonical(const SessionEntry& s)
 	if(!st.IsNull(5))
 		meta.Add("version", Value(st.Text(5)));
 	if(!st.IsNull(6))
-		meta.Add("cost", Value(st.Int(6)));
+		meta.Add("cost", Value(st.Double(6)));
 	if(!st.IsNull(7))
 		meta.Add("tokens_input", Value(st.Int(7)));
 	if(!st.IsNull(8))

@@ -18,7 +18,7 @@ SYNOPSIS
     AgentSessionManager [--source SOURCE] canonical SESSION [--out FILE] [--force]
     AgentSessionManager [--source SOURCE] convert SESSION TARGET [--out FILE]
             [--emit-canonical FILE] [--from-canonical FILE] [--force] [--dry-run]
-            [--import] [--install] [--keep-id]
+            [--import] [--install] [--keep-id] [--to-directory DIRECTORY]
     AgentSessionManager --man
 
 SOURCES
@@ -72,7 +72,10 @@ COMMANDS
                  unless --keep-id. --install places the converted JSONL into
                  ~/.claude/projects/<directory>/ for claude (claude target
                  only; refuses to overwrite an existing session file).
-                 --emit-canonical saves the intermediate
+                 --to-directory re-homes the conversion: claude records get
+                 a fresh session ID and the new cwd; --import lands the kilo
+                 session in that project. --emit-canonical saves the
+                 intermediate
                  canonical JSON. --from-canonical FILE converts a previously
                  emitted canonical file instead of reading a session.
                  --dry-run validates and reports counts without writing.
@@ -182,6 +185,7 @@ struct Opts {
 	bool   import_flag;
 	bool   install_flag;
 	bool   keep_id;
+	String to_directory;
 
 	Opts()
 	{
@@ -220,6 +224,7 @@ static const char *USAGE_CONVERT =
 "                                   [--out FILE] [--emit-canonical FILE]\n"
 "                                   [--from-canonical FILE] [--force] [--dry-run]\n"
 "                                   [--import] [--install] [--keep-id]\n"
+"                                   [--to-directory DIRECTORY]\n"
 "                                   session_id {kilo,claude}\n";
 
 static const char *USAGE_LIST =
@@ -404,6 +409,10 @@ static bool ParseArgs(const Vector<String>& argv, Opts& o, ArgErr& err)
 			o.import_flag = true;
 		else if(a == "--install" && o.command == "convert")
 			o.install_flag = true;
+		else if(a == "--to-directory" && o.command == "convert") {
+			if(!TakeValue(argv, i, "--to-directory", o.to_directory, err))
+				return false;
+		}
 		else if(a == "--keep-id" && o.command == "convert")
 			o.keep_id = true;
 		else if(a.StartsWith("-")) {
@@ -697,7 +706,8 @@ CONSOLE_APP_MAIN
 				       << " messages, " << partcount << " parts)\n";
 				if(o.import_flag) {
 					String impmsg;
-					if(!KiloImportFile(outpath, cs.directory, impmsg)) {
+					String import_cwd = o.to_directory.IsEmpty() ? cs.directory : o.to_directory;
+					if(!KiloImportFile(outpath, import_cwd, impmsg)) {
 						Cerr() << impmsg;
 						SetExitCode(2);
 						return;
@@ -711,15 +721,20 @@ CONSOLE_APP_MAIN
 			else {
 				if(FileExists(outpath) && !o.force)
 					throw SessionError("output file exists: " + outpath + " (use --force)");
+				String override_sid;
+				if(!o.to_directory.IsEmpty() && cs.source == "claude")
+					override_sid = GenClaudeUuid();
 				String werr;
-				if(!WriteClaudeJsonl(cs, outpath, werr))
+				if(!WriteClaudeJsonl(cs, outpath, werr, o.to_directory, override_sid))
 					throw SessionError(werr);
 				Cout() << "claude jsonl written: " << outpath << " (" << cs.messages.GetCount()
 				       << " messages, " << partcount << " parts)\n";
 				if(o.install_flag) {
 					String installed;
 					String ierr;
-					if(!InstallClaudeJsonl(cs, outpath, installed, ierr))
+					String idir = o.to_directory.IsEmpty() ? cs.directory : o.to_directory;
+					String isid = override_sid.IsEmpty() ? cs.id : override_sid;
+					if(!InstallClaudeJsonl(idir, isid, outpath, installed, ierr))
 						throw SessionError(ierr);
 					Cout() << "installed: " << installed << "\n";
 				}

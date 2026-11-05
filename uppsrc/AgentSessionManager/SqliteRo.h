@@ -44,6 +44,7 @@ public:
 	SqlStepResult Step();
 	String Text(int col);
 	int64  Int(int col);
+	double Double(int col);
 	String Blob(int col);
 	bool   IsNull(int col) const;
 	void   Finalize();
