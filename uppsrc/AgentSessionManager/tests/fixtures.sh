@@ -9,7 +9,11 @@ set -u
 A="$(cd "$(dirname "$0")/../../.." && pwd)/bin/AgentSessionManager"
 [ -x "$A" ] || { echo "bin/AgentSessionManager not built"; exit 1; }
 FAKE=$(mktemp -d)
-trap 'rm -rf "$FAKE"' EXIT
+if [ "${FIXTURE_KEEP:-0}" = "1" ]; then
+	trap 'echo "fixture HOME kept at $FAKE"' EXIT
+else
+	trap 'rm -rf "$FAKE"' EXIT
+fi
 ok=0; fail=0
 pass() { echo "PASS: $1"; ok=$((ok+1)); }
 failf() { echo "FAIL: $1"; fail=$((fail+1)); }
@@ -110,8 +114,12 @@ con = sqlite3.connect(os.path.join(adir, "conversations", asid + ".db"))
 con.execute("CREATE TABLE steps (idx INTEGER, step_type INTEGER, status INTEGER, step_payload BLOB)")
 s0 = b"\x08" + varint(1767236649) + ld(2, b"fixture step text 0") + b"\x00" + ld(2, b"line two") + b"\x00\x28\x39"
 s1 = b"\x08" + varint(1767236650) + ld(2, b"\x08" + varint(1767236650) + ld(2, b"fixture step text 1") + b"\x00-3750763034362895579") + b"\x00" + ld(2, b"1234-5678") + b"\x00" + ld(2, b"$weird")
+s2 = b"\x08" + varint(1767236651) + ld(2, b"call_fixant") + b"\x00" + ld(2, b"run_command") + b"\x00" + ld(2, b'{"CommandLine":"echo fixture tool","WaitMsBeforeAsync":5,"toolSummary":"fixture"}') + b"\x00" + ld(2, b"allow") + b"\x00" + ld(2, b"fixture tool output")
+s3 = b"\x08" + varint(1767236652) + ld(2, b"fixture continuation") + b"\x00" + ld(2, b"RESOURCE_EXHAUSTED (code 429): Individual quota reached") + b"\x00" + ld(2, b'"quotaResetTimeStamp": "2026-01-03T00:00:00Z"')
 con.execute("INSERT INTO steps VALUES (?,?,?,?)", (0, 14, 3, s0))
 con.execute("INSERT INTO steps VALUES (?,?,?,?)", (1, 15, 3, s1))
+con.execute("INSERT INTO steps VALUES (?,?,?,?)", (2, 132, 5, s2))
+con.execute("INSERT INTO steps VALUES (?,?,?,?)", (3, 16, 3, s3))
 con.commit(); con.close()
 print("fixtures built in", home)
 PYEOF
@@ -154,6 +162,7 @@ t = open(sys.argv[1]).read()
 assert t.startswith("# Fixture preview\n\nSource: antigravity | Session: `aaaaaaaa-1111-2222-3333-444444444444` | Directory: `/tmp/fixture-proj`\n\n"), t[:140]
 assert "## Step 1 (type 14, status 3) 1 - 2026-01-01T03:04:09Z\n\nfixture step text 0\n\nline two\n\n" in t
 assert "## Step 2 (type 15, status 3) 2 - 2026-01-01T03:04:10Z\n\nfixture step text 1\n\n" in t
+assert "## Step 4 (type 16, status 3) 4 - 2026-01-01T03:04:12Z\n\nfixture continuation\n\n7RESOURCE_EXHAUSTED (code 429): Individual quota reached\n\n-\"quotaResetTimeStamp\": \"2026-01-03T00:00:00Z\"\n\n" in t
 assert "3750763034362895579" not in t and "1234-5678" not in t and "$weird" not in t
 assert "(type 14, status 3)" in t and "(type 15, status 3)" in t
 EOF
@@ -213,18 +222,31 @@ EOF
 chkpy "antigravity canonical fidelity" "$FAKE/canon_ant.json" <<'EOF'
 import json, sys
 d = json.load(open(sys.argv[1]))
-assert d["source"] == "antigravity" and len(d["messages"]) == 2
-m0, m1 = d["messages"]
+assert d["source"] == "antigravity" and len(d["messages"]) == 4
+m0, m1, m2, m3 = d["messages"]
 assert m0["role"] == "user" and m0["id"] == "step-0" and m0["stamp_ms"] == 1767236649000
 assert m1["role"] == "assistant" and m1["stamp_ms"] == 1767236650000
+assert m2["role"] == "assistant" and m2["stamp_ms"] == 1767236651000
+assert m2["parts"][0]["type"] == "tool_use" and m2["parts"][0]["call_id"] == "call_fixant"
+assert m2["parts"][0]["tool"] == "run_command"
+assert m2["parts"][0]["input"] == {"CommandLine":"echo fixture tool","WaitMsBeforeAsync":5,"toolSummary":"fixture"}
+assert "fixture tool output" in m2["parts"][0]["output"]
+assert m3["role"] == "assistant" and m3["stamp_ms"] == 1767236652000
 assert m0["parts"][0]["text"] == "fixture step text 0\nline two"
 assert m0["parts"][0]["meta"] == {"idx": 0, "step_type": 14, "status": 3}
+assert m0["parts"][0]["payload_base64"]
+assert len(__import__('base64').b64decode(m0["parts"][0]["payload_base64"])) > 0
+assert m0["parts"][0]["extracted_strings"] == ["fixture step text 0", "line two"]
+assert "RESOURCE_EXHAUSTED" not in m1["parts"][0]["text"]
+assert m3["parts"][0]["meta"]["quota_error"] is True
+assert "Quota reset: 2026-01-03T00:00:00Z" in m3["parts"][0]["text"]
 EOF
 
 "$A" --source kilo convert ses_fixture1 claude --out "$FAKE/k2c.jsonl" >/dev/null 2>&1
 mkdir -p "$FAKE/.claude/projects/-tmp-fixture-proj"
-cp "$FAKE/k2c.jsonl" "$FAKE/.claude/projects/-tmp-fixture-proj/ses_fixture1.jsonl"
-"$A" --source claude canonical ses_fixture1 --out "$FAKE/canon_k2c.json" >/dev/null 2>&1
+K2C_SID=$(python3 -c 'import json,sys; print(json.loads(open(sys.argv[1]).readline())["sessionId"])' "$FAKE/k2c.jsonl")
+cp "$FAKE/k2c.jsonl" "$FAKE/.claude/projects/-tmp-fixture-proj/$K2C_SID.jsonl"
+"$A" --source claude canonical "$K2C_SID" --out "$FAKE/canon_k2c.json" >/dev/null 2>&1
 chkpy "kilo->claude->canonical cross round trip" "$FAKE/canon_k2c.json" <<'EOF'
 import json, sys
 d = json.load(open(sys.argv[1]))
@@ -234,12 +256,14 @@ assert m0["role"] == "user" and m0["parts"][0]["type"] == "text"
 assert m0["parts"][0]["text"] == "kilo fixture prompt"
 assert m0["stamp_ms"] == 1767236645000
 assert m1["role"] == "assistant"
+assert json.loads(m1["src_json"])["message"]["stop_reason"] == "tool_use"
 blocks = m1["parts"]
 assert blocks[0]["type"] == "tool_use" and blocks[0]["tool"] == "bash"
 assert blocks[0]["input"] == {"command": "ls"}
-assert blocks[0]["call_id"] == "call_fix1"
+assert blocks[0]["call_id"].startswith("toolu_")
 assert m2["role"] == "user" and m2["parts"][0]["type"] == "tool_result"
 assert m2["parts"][0]["text"] == "done listing"
+assert m2["parts"][0]["call_id"] == blocks[0]["call_id"]
 EOF
 
 "$A" --source claude convert 11111111 kilo --out "$FAKE/c2k.json" >/dev/null 2>&1
@@ -259,6 +283,63 @@ assert tool[0]["state"]["input"] == {"command": "ls"}
 tool = [p for p in m1["parts"] if p["type"] == "tool"]
 assert tool[0]["state"]["output"] == "file list"
 assert d["messages"][2]["parts"] == []
+EOF
+
+"$A" --source antigravity convert aaaaaaaa claude --out "$FAKE/a2c.jsonl" >/dev/null 2>&1
+chkpy "antigravity->claude native envelope/thread/error mapping" "$FAKE/a2c.jsonl" <<'EOF'
+import json, re, sys
+lines = [json.loads(l) for l in open(sys.argv[1]) if l.strip()]
+assert len(lines) == 5
+uuids = [r["uuid"] for r in lines]
+assert all(re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}", u) for u in uuids)
+assert all(r["parentUuid"] == (None if i == 0 else uuids[i-1]) for i,r in enumerate(lines))
+for r in lines:
+    for k in ("isSidechain", "userType", "entrypoint", "version", "session_id", "slug"):
+        assert k in r, k
+assert lines[0]["message"]["role"] == "user"
+tool_call = lines[2]["message"]["content"][0]
+tool_result = lines[3]["message"]["content"][0]
+assert tool_call["type"] == "tool_use" and tool_result["type"] == "tool_result"
+assert tool_result["tool_use_id"] == tool_call["id"]
+assert lines[2]["message"]["stop_reason"] == "tool_use"
+assert tool_call["name"] == "run_command" and tool_call["input"]["CommandLine"] == "echo fixture tool"
+assert "fixture tool output" in tool_result["content"]
+assistant = lines[4]
+for k in ("id", "model", "role", "stop_details", "stop_reason", "stop_sequence", "type", "usage", "content"):
+    assert k in assistant["message"], k
+assert assistant["message"]["model"] == "<synthetic>"
+assert assistant["message"]["usage"]["input_tokens"] == 0
+assert assistant["error"] == "rate_limit" and assistant["isApiErrorMessage"] is True and assistant["apiErrorStatus"] == 429
+assert "RESOURCE_EXHAUSTED" in assistant["message"]["content"][0]["text"]
+EOF
+
+"$A" --source antigravity convert aaaaaaaa kilo --out "$FAKE/a2k.json" >/dev/null 2>&1
+chkpy "antigravity->kilo per-step messages/tool parts/raw payload" "$FAKE/a2k.json" <<'EOF'
+import json, sys
+d = json.load(open(sys.argv[1])); msgs = d["messages"]
+assert len(msgs) == 4 and msgs[0]["info"]["role"] == "user"
+u, a1, a2, a3 = msgs
+assert all(m["info"]["role"] == "assistant" for m in (a1,a2,a3))
+assert all(m["info"]["parentID"] == u["info"]["id"] for m in (a1,a2,a3))
+assert a2["info"]["modelID"] == "m1" and a2["info"]["providerID"] == "p1"
+assert a1["parts"][0]["type"] == "text" and a1["parts"][0]["metadata"]["idx"] == 1
+assert a1["parts"][0]["metadata"]["payload_base64"]
+tool = a2["parts"][0]
+assert tool["tool"] == "run_command" and tool["callID"] == "call_fixant"
+assert tool["state"]["input"]["CommandLine"] == "echo fixture tool"
+assert "fixture tool output" in tool["state"]["output"]
+assert a3["parts"][0]["metadata"]["idx"] == 3 and a3["parts"][0]["text"].startswith("Antigravity API quota error (HTTP 429")
+assert a3["info"]["finish"] == "stop"
+EOF
+
+"$A" --source antigravity convert aaaaaaaa kilo --model openai/gpt-test --out "$FAKE/a2k-model.json" >/dev/null 2>&1
+chkpy "explicit Kilo model override" "$FAKE/a2k-model.json" <<'EOF'
+import json, sys
+d = json.load(open(sys.argv[1]))
+assert d["info"]["model"]["providerID"] == "openai"
+assert d["info"]["model"]["id"] == "gpt-test"
+assert d["info"]["metadata"]["syntheticUsage"] is True
+assert d["info"]["metadata"]["syntheticModel"] is False
 EOF
 
 "$A" --source claude convert 11111111 claude --to-directory /tmp/rehomed-proj --out "$FAKE/rehome.jsonl" >/dev/null 2>&1
@@ -291,6 +372,16 @@ assert tool["type"] == "tool" and tool["state"]["output"] == "done listing"
 assert tool["state"]["time"]["start"] == 1767236646100
 assert m[1]["info"]["parentID"] == m[0]["info"]["id"]
 assert m[1]["info"]["time"]["completed"] == 1767236648000
+EOF
+
+"$A" --source antigravity convert aaaaaaaa kilo --out "$FAKE/id-a.json" >/dev/null 2>&1
+"$A" --source antigravity convert aaaaaaaa kilo --out "$FAKE/id-b.json" >/dev/null 2>&1
+chkpy "generated Kilo ids unique across processes" "$FAKE/id-a.json" "$FAKE/id-b.json" <<'EOF'
+import json, sys
+a=json.load(open(sys.argv[1])); b=json.load(open(sys.argv[2]))
+assert a["info"]["id"] != b["info"]["id"]
+assert {m["info"]["id"] for m in a["messages"]}.isdisjoint({m["info"]["id"] for m in b["messages"]})
+assert {p["id"] for m in a["messages"] for p in m["parts"]}.isdisjoint({p["id"] for m in b["messages"] for p in m["parts"]})
 EOF
 
 echo "== $ok pass, $fail fail =="

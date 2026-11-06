@@ -1,12 +1,18 @@
 #include "AgentSessionManager.h"
 
+#include <time.h>
+#include <unistd.h>
+
 NAMESPACE_UPP
 
 static uint64 GenSeed()
 {
 	static uint64 seq = 0;
 	seq++;
-	uint64 seed = ((uint64)NowMs() << 24) ^ (seq * 0x9E3779B97F4A7C15ull);
+	struct timespec ts;
+	::clock_gettime(CLOCK_REALTIME, &ts);
+	uint64 nanos = (uint64)ts.tv_sec * 1000000000ull + (uint64)ts.tv_nsec;
+	uint64 seed = nanos ^ ((uint64)::getpid() << 32) ^ (seq * 0x9E3779B97F4A7C15ull);
 	seed ^= seed >> 33;
 	seed *= 0xff51afd7ed558ccdull;
 	seed ^= seed >> 33;
@@ -122,6 +128,14 @@ static void PartToJson(ValueMap& m, const CanonicalPart& p)
 		m.Add("src", Value(p.src_json));
 	else
 		m.Add("src", Value());
+	if(!p.payload_base64.IsEmpty())
+		m.Add("payload_base64", Value(p.payload_base64));
+	else
+		m.Add("payload_base64", Value());
+	if(!p.extracted_strings.IsNull())
+		m.Add("extracted_strings", p.extracted_strings);
+	else
+		m.Add("extracted_strings", Value(ValueArray()));
 }
 
 Value CanonicalToJson(const CanonicalSession& s)
@@ -243,6 +257,10 @@ bool CanonicalFromJson(const Value& v, CanonicalSession& s, String& error)
 				if(IsValueMap(pmeta))
 					part.meta = pmeta;
 				part.src_json = GetStrField(pm, "src");
+				part.payload_base64 = GetStrField(pm, "payload_base64");
+				Value extracted = pm.Get("extracted_strings");
+				if(extracted.GetType() == VALUEARRAY_V)
+					part.extracted_strings = extracted;
 			}
 		}
 	}

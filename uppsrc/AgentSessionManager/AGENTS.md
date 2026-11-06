@@ -19,10 +19,28 @@ Pipeline: `source (read-only) -> CanonicalSession IR -> target writer`.
   is pick-only - build IR via in-place `Add()` references, never copy.
 - `CanonicalSource.cpp`: per-source readers. Kilo source stores verbatim
   `message.data`/`part.data` as `src_json`; claude stores whole record lines;
-  antigravity steps get structured `step` parts (role: step_type 14 -> user).
-  Canonical keeps stringless antigravity steps that `dump` filters out.
+  antigravity steps get structured `step` parts (role: step_type 14 -> user),
+  extracted strings, and Base64 raw protobuf payload. Canonical keeps
+  stringless antigravity steps that `dump` filters out.
 - `Convert.cpp`: `ToKiloExportJson` (kilo-import-compatible JSON),
   `WriteClaudeJsonl`, `KiloImportFile` (runs official `kilo import`).
+- Kilo conversion emits one Kilo message per Antigravity step: type-14 steps
+  are user messages; assistant steps are parented to the active user turn.
+  Each message carries one text/tool part with step metadata and a native
+  assistant `finish`. Kilo native export re-import comparison preserves all
+  21696 messages, roles, part IDs, part types, and content (only the expected
+  destination directory/projectID are re-homed). Strongly
+  identified tool calls (call id + tool name + valid JSON input) become native
+  Kilo/Claude tool parts; ambiguous strings stay text. It resolves a model from
+  a native Kilo session in the destination project, or accepts `--model
+  PROVIDER/MODEL`; otherwise it warns and marks model/usage metadata synthetic.
+- Generated Claude records use UUID ids, a `parentUuid` chain, native-shaped
+  user/assistant envelopes, paired tool calls/results, `stop_reason: tool_use`
+  for tool calls, and error metadata for recognizable 429 quota
+  errors. Antigravity text remains best-effort: the payload is opaque protobuf;
+  quota errors are summarized (malformed fragments are not rendered), and
+  exact payload bytes/extracted strings remain in canonical `payload_base64`
+  and Kilo text/tool-part metadata.
 - CLI: `canonical SESSION [--out FILE|-]` and
   `convert SESSION TARGET [--out FILE] [--emit-canonical F] [--from-canonical F]
   [--force] [--dry-run] [--import] [--install] [--keep-id] [--to-directory DIR]`.
@@ -44,9 +62,10 @@ Pipeline: `source (read-only) -> CanonicalSession IR -> target writer`.
 - Therefore converted kilo exports ALWAYS regenerate message/part ids, and
   `--import` uses a fresh session id unless `--keep-id`. Run import with
   cwd = session directory so it lands in the right project.
-- Required schema fields for kilo export JSON are filled with defaults
-  (agent "code", model unknown, mode build, cost/tokens 0, tool state
-  completed with time start/end).
+- Required schema fields for kilo export JSON are filled with defaults.
+  The target project model/agent is resolved from an existing Kilo session or
+  accepted via `--model`; token/cost counters remain marked synthetic zeroes
+  when the source cannot provide them.
 
 ### Backups before live-import work
 - /win/kilo-db-backups/kilo-20261105-173319.db

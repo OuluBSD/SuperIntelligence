@@ -297,6 +297,111 @@ static bool CanonicalIsSpecialOnly(const String& text)
 	return true;
 }
 
+static bool CanonicalIsTransportMarker(const String& session_id, const String& text)
+{
+	if((text.StartsWith("S\"$") || text.StartsWith("2*")) && text.Find(session_id) >= 0)
+		return true;
+	String sentinel = "-3750763034362895579";
+	int at = text.Find(sentinel);
+	return at >= 0 && text.GetCount() - sentinel.GetCount() <= 2;
+}
+
+static String CanonicalAntigravityStepText(const Vector<String>& strings, bool inspect_quota,
+	bool& quota_error, String& human_error, String& reset_time)
+{
+	String joined;
+	bool has_error_marker = false;
+	bool has_reset_time = false;
+	for(int i = 0; i < strings.GetCount(); i++) {
+		const String& s = strings[i];
+		int resource_pos = s.Find("RESOURCE_EXHAUSTED (code 429)");
+		int quota_pos = s.Find("QUOTA_EXHAUSTED");
+		int http_pos = s.Find("HTTP 429 Too Many Requests");
+		int individual_pos = s.Find("Individual quota reached");
+		if(inspect_quota && (resource_pos >= 0 || http_pos >= 0
+		   || (individual_pos >= 0 && quota_pos >= 0)))
+			has_error_marker = true;
+		if(inspect_quota && human_error.IsEmpty()) {
+			if(resource_pos >= 0)
+				human_error = s.Mid(resource_pos);
+			else if(individual_pos >= 0)
+				human_error = s.Mid(individual_pos);
+		}
+		String reset_key = "quotaResetTimeStamp";
+		int pos = s.Find(reset_key);
+		if(pos >= 0) {
+			has_reset_time = true;
+			int colon = s.Find(':', pos + reset_key.GetCount());
+			if(colon >= 0) {
+				int quote = s.Find('"', colon + 1);
+				if(quote >= 0) {
+					int end = s.Find('"', quote + 1);
+					if(end > quote)
+						reset_time = s.Mid(quote + 1, end - quote - 1);
+				}
+			}
+		}
+		if(!joined.IsEmpty())
+			joined << "\n";
+		joined << s;
+	}
+	quota_error = inspect_quota && has_error_marker && has_reset_time;
+	if(!quota_error)
+		return joined;
+	String out = "Antigravity API quota error (HTTP 429 / RESOURCE_EXHAUSTED).";
+	if(!human_error.IsEmpty())
+		out << "\n" << human_error;
+	if(!reset_time.IsEmpty())
+		out << "\nQuota reset: " << reset_time;
+	out << "\nRaw response is preserved in the Antigravity protobuf payload metadata.";
+	return out;
+}
+
+static bool CanonicalAntigravityToolCall(const Vector<String>& strings, String& call_id,
+	String& tool, String& input_json, String& output_text)
+{
+	int call_index = -1;
+	for(int i = 0; i < strings.GetCount(); i++) {
+		if(strings[i].StartsWith("call_") && strings[i].GetCount() > 8) {
+			call_index = i;
+			call_id = strings[i];
+			break;
+		}
+	}
+	if(call_index < 0 || call_index + 2 >= strings.GetCount())
+		return false;
+	tool = strings[call_index + 1];
+	if(tool.IsEmpty() || tool.Find(' ') >= 0 || tool.Find('\t') >= 0 || tool.GetCount() > 64)
+		return false;
+	int json_index = -1;
+	Value input;
+	for(int i = call_index + 2; i < strings.GetCount(); i++) {
+		int begin = strings[i].Find('{');
+		int end = strings[i].ReverseFind('}');
+		if(begin < 0 || end <= begin)
+			continue;
+		Value candidate = ParseJsonValue(strings[i].Mid(begin, end - begin + 1));
+		if(candidate.GetType() == VALUEMAP_V) {
+			input = candidate;
+			json_index = i;
+			break;
+		}
+	}
+	if(json_index < 0)
+		return false;
+	input_json = DumpJson(input, false, false, true);
+	for(int i = json_index + 1; i < strings.GetCount(); i++) {
+		const String& part = strings[i];
+		if(part == "allow" || part == "deny" || part == "command" || part == "terminal"
+		   || part == "terminalJ" || part == "Ran2" || part.StartsWith("2*"))
+			continue;
+		if(!output_text.IsEmpty())
+			output_text << "\n";
+		output_text << part;
+	}
+	return true;
+}
+
 static bool CanonicalReadVarint(const byte *d, int len, int& pos, uint64& value)
 {
 	value = 0;
@@ -363,6 +468,12 @@ CanonicalSession AntigravityToCanonical(const SessionEntry& s)
 	SqliteStatement q;
 	if(!q.Prepare(ro, "SELECT idx,step_type,status,step_payload FROM steps ORDER BY idx"))
 		throw SessionError(q.Error());
+	SqliteStatement last_step;
+	if(!last_step.Prepare(ro, "SELECT idx FROM steps ORDER BY idx DESC LIMIT 1"))
+		throw SessionError(last_step.Error());
+	int64 last_idx = -1;
+	if(last_step.Step() == SQLITE_STEP_ROW)
+		last_idx = last_step.Int(0);
 	CanonicalSession out;
 	out.id = s.id;
 	out.source = "antigravity";
@@ -396,7 +507,8 @@ CanonicalSession AntigravityToCanonical(const SessionEntry& s)
 				j++;
 			if(j - i >= 4) {
 				String text = CanonicalPyStrip(String((const char *)(d + i), j - i));
-				if(!text.IsEmpty() && FindIndex(strings, text) < 0 && !text.StartsWith("$")
+				if(!text.IsEmpty() && !CanonicalIsTransportMarker(s.id, text)
+				   && FindIndex(strings, text) < 0 && !text.StartsWith("$")
 				   && !text.StartsWith("b$") && !text.StartsWith("sessionID")
 				   && !CanonicalIsSpecialOnly(text))
 					strings.Add(text);
@@ -427,15 +539,42 @@ CanonicalSession AntigravityToCanonical(const SessionEntry& s)
 		CanonicalPart& part = msg.parts.Add();
 		part.type = "step";
 		part.stamp_ms = stamp;
-		for(int k = 0; k < strings.GetCount(); k++) {
-			if(k)
-				part.text << "\n";
-			part.text << strings[k];
+		part.payload_base64 = Base64Encode(payload);
+		ValueArray extracted;
+		bool quota_error = false;
+		String human_error;
+		String reset_time;
+		part.text = CanonicalAntigravityStepText(strings, idx == last_idx,
+			quota_error, human_error, reset_time);
+		for(int k = 0; k < strings.GetCount(); k++)
+			extracted.Add(Value(strings[k]));
+		part.extracted_strings = Value(extracted);
+		String call_id, tool, input_json, output_text;
+		if(CanonicalAntigravityToolCall(strings, call_id, tool, input_json, output_text)) {
+			part.type = "tool_use";
+			part.call_id = call_id;
+			part.tool = tool;
+			part.status = "completed";
+			part.input_json = input_json;
+			part.output_json = DumpJson(Value("Antigravity tool output (protobuf-extracted):\n" + output_text),
+				false, false, true);
+			part.text = "Antigravity tool call: " + tool;
 		}
 		ValueMap pmeta;
 		pmeta.Add("idx", Value(idx));
 		pmeta.Add("step_type", Value(step_type));
 		pmeta.Add("status", Value(status));
+		if(part.type == "tool_use") {
+			pmeta.Add("source_tool_call_id", Value(call_id));
+			pmeta.Add("source_tool_name", Value(tool));
+		}
+		if(quota_error) {
+			pmeta.Add("quota_error", Value(true));
+			pmeta.Add("error_code", Value(String("RESOURCE_EXHAUSTED")));
+			pmeta.Add("http_status", Value(429));
+			if(!reset_time.IsEmpty())
+				pmeta.Add("quota_reset_time", Value(reset_time));
+		}
 		part.meta = pmeta;
 	}
 	return out;

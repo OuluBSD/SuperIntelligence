@@ -17,6 +17,8 @@ struct CanonicalPart : Moveable<CanonicalPart> {
 	int64  stamp_ms;
 	Value  meta;
 	String src_json;
+	String payload_base64;
+	Value  extracted_strings;
 
 	CanonicalPart() { stamp_ms = 0; }
 };
@@ -63,7 +65,8 @@ CanonicalSession KiloToCanonical(const SessionEntry& s);
 CanonicalSession AntigravityToCanonical(const SessionEntry& s);
 CanonicalSession ToCanonical(const SessionEntry& s);
 
-Value  ToKiloExportJson(const CanonicalSession& s, bool fresh_session_id, String& error);
+Value  ToKiloExportJson(const CanonicalSession& s, bool fresh_session_id,
+	const String& model_override, String& error);
 bool   WriteClaudeJsonl(const CanonicalSession& s, const String& path, String& error,
 	const String& to_directory = String(), const String& session_id_override = String());
 bool   KiloImportFile(const String& file, const String& cwd, String& message);

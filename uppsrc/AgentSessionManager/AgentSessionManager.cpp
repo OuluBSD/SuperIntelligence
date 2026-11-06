@@ -19,6 +19,7 @@ SYNOPSIS
     AgentSessionManager [--source SOURCE] convert SESSION TARGET [--out FILE]
             [--emit-canonical FILE] [--from-canonical FILE] [--force] [--dry-run]
             [--import] [--install] [--keep-id] [--to-directory DIRECTORY]
+            [--model PROVIDER/MODEL]
     AgentSessionManager --man
 
 SOURCES
@@ -79,6 +80,10 @@ COMMANDS
                  canonical JSON. --from-canonical FILE converts a previously
                  emitted canonical file instead of reading a session.
                  --dry-run validates and reports counts without writing.
+                 --model PROVIDER/MODEL overrides Kilo's target model; otherwise
+                 the latest configured model for the destination project is
+                 used, with a warning and marked placeholder only if none can
+                 be found.
                  Output files are never overwritten without --force.
 
 CANONICAL FORMAT
@@ -186,6 +191,7 @@ struct Opts {
 	bool   install_flag;
 	bool   keep_id;
 	String to_directory;
+	String model_override;
 
 	Opts()
 	{
@@ -224,7 +230,7 @@ static const char *USAGE_CONVERT =
 "                                   [--out FILE] [--emit-canonical FILE]\n"
 "                                   [--from-canonical FILE] [--force] [--dry-run]\n"
 "                                   [--import] [--install] [--keep-id]\n"
-"                                   [--to-directory DIRECTORY]\n"
+"                                   [--to-directory DIRECTORY] [--model PROVIDER/MODEL]\n"
 "                                   session_id {kilo,claude}\n";
 
 static const char *USAGE_LIST =
@@ -413,6 +419,10 @@ static bool ParseArgs(const Vector<String>& argv, Opts& o, ArgErr& err)
 			if(!TakeValue(argv, i, "--to-directory", o.to_directory, err))
 				return false;
 		}
+		else if(a == "--model" && o.command == "convert") {
+			if(!TakeValue(argv, i, "--model", o.model_override, err))
+				return false;
+		}
 		else if(a == "--keep-id" && o.command == "convert")
 			o.keep_id = true;
 		else if(a.StartsWith("-")) {
@@ -535,8 +545,18 @@ CONSOLE_APP_MAIN
 			SetExitCode(2);
 			return;
 		}
+		if(!o.model_override.IsEmpty() && o.target != "kilo") {
+			Cerr() << USAGE_CONVERT << "AgentSessionManager convert: error: argument --model: only valid with target kilo\n";
+			SetExitCode(2);
+			return;
+		}
 		if(o.import_flag && o.install_flag) {
 			Cerr() << USAGE_CONVERT << "AgentSessionManager convert: error: argument --install: not allowed with argument --import\n";
+			SetExitCode(2);
+			return;
+		}
+		if(!o.model_override.IsEmpty() && o.target != "kilo") {
+			Cerr() << USAGE_CONVERT << "AgentSessionManager convert: error: argument --model: only valid with target kilo\n";
 			SetExitCode(2);
 			return;
 		}
@@ -693,9 +713,15 @@ CONSOLE_APP_MAIN
 				if(FileExists(outpath) && !o.force)
 					throw SessionError("output file exists: " + outpath + " (use --force)");
 				String kerr;
-				Value ev = ToKiloExportJson(cs, !o.keep_id, kerr);
+				Value ev = ToKiloExportJson(cs, !o.keep_id, o.model_override, kerr);
 				if(!kerr.IsEmpty())
 					throw SessionError(kerr);
+				Value info_value = ValueMap(ev).Get("info");
+				Value metadata_value = ValueMap(info_value).Get("metadata");
+				if(ValueMap(metadata_value).Get("syntheticModel").Is<bool>()
+				   && (bool)ValueMap(metadata_value).Get("syntheticModel"))
+					Cerr() << "warning: no target Kilo model found; export uses unknown model metadata. "
+					       << "Pass --model PROVIDER/MODEL to select one.\n";
 				FileOut f(outpath);
 				if(!f)
 					throw SessionError("cannot write " + outpath);
@@ -747,4 +773,3 @@ CONSOLE_APP_MAIN
 		return;
 	}
 }
-
