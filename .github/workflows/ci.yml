@@ -124,6 +124,15 @@ jobs:
           SuperIntelligence/bin/SweAgentDemo test 16
           SuperIntelligence/bin/SweAgentDemo test 17
 
+      - name: Build McpCheck (${{ matrix.bm }})
+        run: |
+          cd SuperIntelligence
+          uppbuilder tests/McpCheck -m ${{ matrix.bm }} --bazaarcore "$GITHUB_WORKSPACE/BazaarCore" -v
+
+      - name: Run McpCheck Test Suite
+        run: |
+          SuperIntelligence/bin/McpCheck
+
       - name: Build Playground (${{ matrix.bm }})
         run: |
           cd SuperIntelligence
@@ -256,6 +265,18 @@ jobs:
           SuperIntelligence\bin\SweAgentDemo.exe test 15
           SuperIntelligence\bin\SweAgentDemo.exe test 16
           SuperIntelligence\bin\SweAgentDemo.exe test 17
+
+      - name: Build McpCheck (MSVC)
+        shell: cmd
+        run: |
+          cd SuperIntelligence
+          uppbuilder.exe tests/McpCheck -m MSVS22x64 --bazaarcore "%GITHUB_WORKSPACE%\BazaarCore" -v
+
+      - name: Run McpCheck Test Suite (Windows)
+        shell: cmd
+        run: |
+          if exist "C:\vcpkg\installed\x64-windows\bin" copy /y "C:\vcpkg\installed\x64-windows\bin\*.dll" SuperIntelligence\bin\
+          SuperIntelligence\bin\McpCheck.exe
 
       - name: Build Playground (MSVC)
         shell: cmd

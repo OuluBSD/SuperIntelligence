@@ -1,0 +1,11 @@
+description "MCP Headless Core Unit Test Suite\377";
+
+uses
+	Core,
+	MCP;
+
+file
+	McpCheck.cpp;
+
+mainconfig
+	"" = "";

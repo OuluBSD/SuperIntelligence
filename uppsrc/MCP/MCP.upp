@@ -1,0 +1,13 @@
+description "Headless MCP core\377B";
+
+uses
+	Core;
+
+file
+	AGENTS.md,
+	MCP.h,
+	Protocol.h,
+	Log.h,
+	Log.cpp,
+	Server.h,
+	Server.cpp;

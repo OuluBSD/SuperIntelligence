@@ -25,6 +25,7 @@
 | Package | Path | Type | Purpose |
 |---|---|---|---|
 | `SweAgent` | `uppsrc/SweAgent` | Library (Headless) | Core autonomous coding agent framework |
+| `MCP` | `uppsrc/MCP` | Library (Headless) | Model Context Protocol and JSON-RPC 2.0 server core |
 | `SuperIntelligence/Provider` | `uppsrc/SuperIntelligence/Provider` | Library (Headless) | Account/provider manager (`AiManager()`) |
 | `SuperIntelligence/Ctrl` | `uppsrc/SuperIntelligence/Ctrl` | Library (GUI) | Completion, Chat, and Provider setup views |
 | `examples/SweAgentDemo` | `examples/SweAgentDemo` | Console App | SWE-agent test suite and runner |
@@ -39,6 +40,10 @@
 # SweAgent tests
 uppbuilder examples/SweAgentDemo -m CLANG
 ./bin/SweAgentDemo test 15
+
+# MCP unit tests
+uppbuilder tests/McpCheck -m CLANG
+./bin/McpCheck
 
 # Playground build and automated self-test
 uppbuilder examples/Playground -m CLANG
