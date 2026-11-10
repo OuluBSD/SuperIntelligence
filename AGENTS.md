@@ -31,6 +31,8 @@
 | `examples/SweAgentDemo` | `examples/SweAgentDemo` | Console App | SWE-agent test suite and runner |
 | `examples/Playground` | `examples/Playground` | GUI App | Standalone AI Playground workbench |
 | `AgentSessionManager` | `uppsrc/AgentSessionManager` | Console App | AI agent CLI session inspector and converter (Claude, Kilo, Antigravity) |
+| `Analysis/CorpusScore` | `uppsrc/Analysis/CorpusScore` | Console App / Lib | Headless personal-corpus scoring CLI (unigram, bigram, chargram, cooccurrence) |
+| `tests/CorpusScoreCheck` | `tests/CorpusScoreCheck` | Test Suite | Automated model, tokenization, table generation, and scoring unit tests |
 
 ---
 
@@ -44,6 +46,11 @@ uppbuilder examples/SweAgentDemo -m CLANG
 # MCP unit tests
 uppbuilder tests/McpCheck -m CLANG
 ./bin/McpCheck
+
+# CorpusScore build and test suite
+uppbuilder Analysis/CorpusScore -m CLANG
+uppbuilder tests/CorpusScoreCheck -m CLANG
+./bin/CorpusScoreCheck
 
 # Playground build and automated self-test
 uppbuilder examples/Playground -m CLANG

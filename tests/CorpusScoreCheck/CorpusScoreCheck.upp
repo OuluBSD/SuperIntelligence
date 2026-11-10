@@ -1,0 +1,11 @@
+description "CorpusScore Headless Model and Metric Check\377";
+
+uses
+	Core,
+	Analysis/CorpusScore;
+
+file
+	CorpusScoreCheck.cpp;
+
+mainconfig
+	"" = "NO_MAIN";

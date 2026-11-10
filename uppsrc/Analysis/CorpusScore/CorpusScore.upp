@@ -1,0 +1,14 @@
+description "Headless personal-corpus scoring CLI";
+
+uses
+	Core;
+
+file
+	AGENTS.md,
+	CorpusScore.h,
+	CorpusScore.cpp,
+	testdata/candidates.txt,
+	testdata/corpus/2026Q3/Sep04.txt;
+
+mainconfig
+	"" = "";
