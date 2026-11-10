@@ -142,7 +142,7 @@ jobs:
         run: |
           cd SuperIntelligence
           uppbuilder tests/CorpusScoreCheck -m ${{ matrix.bm }} --bazaarcore "$GITHUB_WORKSPACE/BazaarCore" -v
-          SuperIntelligence/bin/CorpusScoreCheck
+          ./bin/CorpusScoreCheck
 
       - name: Build Playground (${{ matrix.bm }})
         run: |
@@ -300,8 +300,8 @@ jobs:
         run: |
           cd SuperIntelligence
           uppbuilder.exe tests/CorpusScoreCheck -m MSVS22x64 --bazaarcore "%GITHUB_WORKSPACE%\BazaarCore" -v
-          if exist "C:\vcpkg\installed\x64-windows\bin" copy /y "C:\vcpkg\installed\x64-windows\bin\*.dll" SuperIntelligence\bin\
-          SuperIntelligence\bin\CorpusScoreCheck.exe
+          if exist "C:\vcpkg\installed\x64-windows\bin" copy /y "C:\vcpkg\installed\x64-windows\bin\*.dll" bin\
+          bin\CorpusScoreCheck.exe
 
       - name: Build Playground (MSVC)
         shell: cmd
