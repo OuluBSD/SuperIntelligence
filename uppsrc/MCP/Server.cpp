@@ -21,7 +21,7 @@ void McpServerCore::Stop() {
 
 void McpServerCore::Loop() {
     TcpSocket listener;
-    if(!listener.Listen(listen_port, 128, true)) {
+    if(!listener.Listen(listen_port, 128, false, true)) {
         RLOG("MCP: listen failed on port " << listen_port << ": " << listener.GetErrorDesc());
         fprintf(stderr, "MCP: listen failed on port %d: %s\n", listen_port, listener.GetErrorDesc().ToStd().c_str());
         return;
